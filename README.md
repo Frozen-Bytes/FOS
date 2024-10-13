@@ -4,6 +4,13 @@
 <img src="https://i.imgur.com/4FJ1YzH.png" alt="Description of image" style="border-radius: 5px;">
 </h1>
 
+# What is this project?
+This project involves creating a fully functional operating system in C. It is considered one of the most challenging projects at Ain Shams University, with some students even finding it more difficult than the graduation project due to its complexity.
+
+The goal of this project is to develop a system that manages resources, schedules processes, ensures protection, provides easy-to-use abstractions of physical resources, and handles memory efficiently.
+
+The team consists of six members, each focusing on different components of the system to ensure smooth development. Throughout the project, we will apply various technical skills, including C programming and low-level debugging.
+
 # Learned Concepts
 - What is an OS and Kernel.
 - How the OS is an illusionist.
