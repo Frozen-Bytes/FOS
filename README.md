@@ -1,2 +1,5 @@
-# FOS
-Operating Systems Course Project where we add functionalities in the FOS (Faculty of Computer and Information Sciences Operating System)
+<h1 align="center"> FOS </h1>
+
+<h1 align="center">
+<img src="https://i.imgur.com/4FJ1YzH.png" alt="Description of image" style="border-radius: 5px;">
+</h1>
