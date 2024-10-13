@@ -31,3 +31,51 @@ The team consists of six members, each focusing on different components of the s
 | Abdllrhman Zedan  | [Abdllrhman Zedan's LinkedIn](https://www.linkedin.com/in/abdllrhmanzedan/)               |
 | Abdallah Mohammed | [Abdallah Mohammed's LinkedIn](https://www.linkedin.com/in/abdallah-mohammed-252095290/)  |
 | Tony Medhat       | [Tony Medhat's LinkedIn](https://www.linkedin.com/in/tonym04/)                            |
+</br>
+
+# Core Functionalities in FOS
+
+The following are examples of key functionalities being developed in FOS. These outline **what** the system will support, though the exact **how** may differ from Linux or other systems:
+
+1. **Clear Terminal Command** (`clear`)  
+   Clears the terminal screen for a fresh view.
+
+2. **Command History Navigation** (`Arrow keys`)  
+   Allows users to navigate through previously entered commands using the up/down arrow keys.
+
+3. **Auto-Completion** (`Tab key`)  
+   Auto-completes commands and file paths, enhancing productivity.
+
+4. **Package Management** (`apt`, `yum`, `pacman`, or similar)  
+   Manages software packages, including installation, updates, and removal.
+
+5. **File and Directory Management**  
+   - `cd`: Change the current directory.
+   - `ls`: List directory contents.
+   - `mkdir`: Create directories.
+   - `rm`: Remove files or directories.
+   - `touch`: Create empty files or update file timestamps.
+   - `mv`: Move or rename files or directories.
+   - `cp`: Copy files or directories.
+   - `rmdir`: Remove empty directories.
+
+6. **Archiving and Compression**  
+   - `tar`: Archive multiple files into a tarball and extract tarballs.
+
+7. **Search and Filtering**  
+   - `grep`: Search file contents using patterns.
+   - `find`: Locate files in a directory hierarchy.
+
+8. **Process Management**  
+   - `ps`: Report a snapshot of current processes.
+   - `kill`: Send a signal to a process (usually to terminate it).
+   - `top`: Display running processes.
+
+9. **Command Chaining**  
+   - `&&`, `;`: Run multiple commands in sequence or conditionally.
+
+10. **Networking Tools**  
+    - `ping`: Check the network connection to a host.
+    - `curl`, `wget`: Transfer data from or to a server.
+
+---
