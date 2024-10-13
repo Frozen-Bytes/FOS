@@ -21,3 +21,13 @@ The team consists of six members, each focusing on different components of the s
 - How the OS context switches between processes.
 - How the OS handles interrupts, exceptions, and system calls.
 - How the OS manages memory and gives the illusion to every application that it has the whole memory to itself using Paging and Segmentation.
+
+# Team Members
+| Name              | LinkedIn account                                                                          |
+|-------------------|-------------------------------------------------------------------------------------------|
+| Ahmed Khaled      | [Ahmed Khaled's LinkedIn](https://www.linkedin.com/in/akayiz/)                            |
+| Amany ElSayed     | [Amany ElSayed's LinkedIn](https://www.linkedin.com/in/amany-elsayed-0a2291294/)          |
+| Kareem Essam      | [Kareem Essam's LinkedIn](https://www.linkedin.com/in/kareemessam1/)                      |
+| Abdllrhman Zedan  | [Abdllrhman Zedan's LinkedIn](https://www.linkedin.com/in/abdllrhmanzedan/)               |
+| Abdallah Mohammed | [Abdallah Mohammed's LinkedIn](https://www.linkedin.com/in/abdallah-mohammed-252095290/)  |
+| Tony Medhat       | [Tony Medhat's LinkedIn](https://www.linkedin.com/in/tonym04/)                            |
