@@ -4,6 +4,9 @@
 <img src="https://i.imgur.com/4FJ1YzH.png" alt="Description of image" style="border-radius: 5px;">
 </h1>
 
+# What is FOS?
+[FOS](https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/) is an educational OS for Ain Shams University Operating Systems Course, forked and refactored from [MIT Operating Systems Lab 6.828.](https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/) It was created by [Dr. Mahmoud Hossam](https://github.com/mahossam/) and currently maintained and lectured by [Dr. Ahmed Salah](mailto:ahmed_salah@cis.asu.edu.eg).
+
 # What is this project?
 This project involves creating a fully functional operating system in C. It is considered one of the most challenging projects at Ain Shams University, with some students even finding it more difficult than the graduation project due to its complexity.
 
@@ -14,7 +17,7 @@ The team consists of six members, each focusing on different components of the s
 # Learned Concepts
 - What is an OS and Kernel.
 - How the OS is an illusionist.
-- How to OS enables multiple processes to run simultaneously.
+- How the OS enables multiple processes to run simultaneously.
 - How the OS context switches between processes.
 - How the OS handles interrupts, exceptions, and system calls.
 - How the OS manages memory and gives the illusion to every application that it has the whole memory to itself using Paging and Segmentation.
