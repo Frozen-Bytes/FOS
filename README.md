@@ -14,14 +14,6 @@ The goal of this project is to develop a system that manages resources, schedule
 
 The team consists of six members, each focusing on different components of the system to ensure smooth development. Throughout the project, we will apply various technical skills, including C programming and low-level debugging.
 
-# Learned Concepts
-- What is an OS and Kernel.
-- How the OS is an illusionist.
-- How the OS enables multiple processes to run simultaneously.
-- How the OS context switches between processes.
-- How the OS handles interrupts, exceptions, and system calls.
-- How the OS manages memory and gives the illusion to every application that it has the whole memory to itself using Paging and Segmentation.
-
 # Team Members
 | Name              | LinkedIn account                                                                          |
 |-------------------|-------------------------------------------------------------------------------------------|
@@ -31,7 +23,6 @@ The team consists of six members, each focusing on different components of the s
 | Abdllrhman Zedan  | [Abdllrhman Zedan's LinkedIn](https://www.linkedin.com/in/abdllrhmanzedan/)               |
 | Abdallah Mohammed | [Abdallah Mohammed's LinkedIn](https://www.linkedin.com/in/abdallah-mohammed-252095290/)  |
 | Tony Medhat       | [Tony Medhat's LinkedIn](https://www.linkedin.com/in/tonym04/)                            |
-</br>
 
 # Additional Functionalities in FOS
 
@@ -49,4 +40,12 @@ The following are examples of additional functionalities planned for FOS. These 
 4. **File and Directory Management**  
    - `cd`: Change the current directory.
    - `ls`: List directory contents.
----
+
+
+# Learned Concepts
+- What is an OS and Kernel.
+- How the OS is an illusionist.
+- How the OS enables multiple processes to run simultaneously.
+- How the OS context switches between processes.
+- How the OS handles interrupts, exceptions, and system calls.
+- How the OS manages memory and gives the illusion to every application that it has the whole memory to itself using Paging and Segmentation.
