@@ -24,9 +24,9 @@ The team consists of six members, each focusing on different components of the s
 | Abdallah Mohammed | [Abdallah Mohammed's LinkedIn](https://www.linkedin.com/in/abdallah-mohammed-252095290/)  |
 | Tony Medhat       | [Tony Medhat's LinkedIn](https://www.linkedin.com/in/tonym04/)                            |
 
-# Additional Functionalities in FOS
+# Suggested Functionalities to add in FOS
 
-The following are examples of additional functionalities planned for FOS. These outline **what** the system will support, though the exact **how** may differ from Linux or other systems. If time permits, these features will be implemented to enhance the user experience:
+The following are examples of additional functionalities planned for FOS. These outline **what** the system will support, though the exact **how** may differ from Linux or other systems. **If time permits**, these features will be implemented to enhance the user experience:
 
 1. **Clear Terminal Command** (`clear`)  
    Clears the terminal screen for a fresh view.
