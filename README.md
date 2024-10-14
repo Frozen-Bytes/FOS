@@ -46,7 +46,7 @@ The following are examples of additional functionalities planned for FOS. These 
 3. **Auto-Completion** (`Tab key`)  
    Auto-completes commands, enhancing productivity.
 
-5. **File and Directory Management**  
+4. **File and Directory Management**  
    - `cd`: Change the current directory.
    - `ls`: List directory contents.
 ---
