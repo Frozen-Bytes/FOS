@@ -64,8 +64,6 @@ include user/Makefrag
 
 # Emulators
 
-GDBPORT 	= 26000
-QEMUGDB 	= -gdb tcp::$(GDBPORT)
 QEMUEXTRAS	= -parallel file:fos-shell.log
 QEMUOPTS 	= -drive file=$(IMAGE),media=disk,format=raw -smp 2 -m 32 $(QEMUEXTRAS)
 
@@ -73,7 +71,7 @@ qemu: all
 	$(V)$(QEMU) -parallel mon:stdio $(QEMUOPTS)
 
 qemu-gdb: all
-	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+	$(QEMU) $(QEMUOPTS) -S -s
 
 
 # For deleting the build
