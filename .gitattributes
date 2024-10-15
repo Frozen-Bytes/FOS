@@ -1,0 +1,16 @@
+# Sets the default behavior for formatting text, 
+# Removes issues with files displayed as edited but they actually where not,
+# The reality is it was just edits to line endings, Windows CRLF, and Linux LF
+# So the below fixes this and stores all files in git with LF line endings,
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted
+# to native line endings on checkout.
+*.c text
+*.h text
+*.S text
+*.md text
+
+# Denote all files that are truly binary and should not be modified.
+*.png binary
+*.jpg binary
