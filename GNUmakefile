@@ -54,8 +54,8 @@ all:
 	$(OBJDIR)/lib/%.o \
 	$(OBJDIR)/user/%.o
 
-KERN_CFLAGS := $(CFLAGS) -DFOS_KERNEL -gstabs
-USER_CFLAGS := $(CFLAGS) -DFOS_USER -gstabs
+KERN_CFLAGS := $(CFLAGS) -DFOS_KERNEL
+USER_CFLAGS := $(CFLAGS) -DFOS_USER
 
 
 # Include Makefrags for subdirectories
