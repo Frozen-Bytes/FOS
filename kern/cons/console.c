@@ -594,3 +594,10 @@ void cons_unlock(void)
 	}
 
 }
+
+// helpers
+void
+reset_cursor_position(void)
+{
+	crt_pos = 0;
+}

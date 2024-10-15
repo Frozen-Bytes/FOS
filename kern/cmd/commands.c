@@ -18,11 +18,12 @@
 #include "../mem/memory_manager.h"
 #include "../tests/tst_handler.h"
 #include "../tests/utilities.h"
+#include "../cons/console.h"
 
 
 //Array of commands. (initialized)
 struct Command commands[] =
-{
+	{
 		//*******************************//
 		/* COMMANDS WITH ZERO ARGUMENTS */
 		//*******************************//
@@ -85,6 +86,11 @@ struct Command commands[] =
 		{ "schedMLFQ", "switch the scheduler to MLFQ with given # queues & quantums", command_sch_MLFQ, -1},
 		{"load", "load a single user program to mem with status = NEW", commnad_load_env, -1},
 		{"tst", "run the given test", command_tst, -1},
+
+		//**************************************//
+		/*               HELPERS                */
+		//**************************************//
+		{"clear", "clears the screen content", command_clear, 0},
 };
 
 //Number of commands = size of the array / size of command structure
@@ -858,4 +864,18 @@ int command_get_modified_buffer_length(int number_of_arguments, char **arguments
 int command_tst(int number_of_arguments, char **arguments)
 {
 	return tst_handler(number_of_arguments, arguments);
+}
+
+// helpers
+int command_clear(int number_of_arguments, char **arguments)
+{
+	// accessing the screen buffer in the memeory
+	// KERNEL_BASE=0xF0000000
+	uint32 *crt_buf = (uint32 *)(0xF0000000 + CGA_BUF);
+
+	// setting the screen buffer content to spaces with black background
+	for (int i = 0; i < CRT_SIZE; i++)
+		crt_buf[i] = 0x0700 | ' ';
+	reset_cursor_position();
+	return 0;
 }
