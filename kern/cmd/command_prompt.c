@@ -531,13 +531,27 @@ int process_command(int number_of_arguments, char **arguments)
 
 	// reinitialize found commands before every "process command" to make sure no previous results are effecting current command
 	LIST_INIT(&foundCommands);
+	// exclude command name from number of arguments
+	int parameter_count = number_of_arguments - 1;
 
 	for (int command_idx = 0; command_idx < NUM_OF_COMMANDS; command_idx++)
 	{
 		if (strcmp(commands[command_idx].name, arguments[0]) == 0)
 		{
-			// check with number of arguments - 1 to avoid counting command name
-			if (number_of_arguments - 1 != commands[command_idx].num_of_args && commands[command_idx].num_of_args != -1)
+			// handle -1 cases
+			if (commands[command_idx].num_of_args == -1)
+			{
+				// if there isn't enough parameters
+				if (parameter_count <= 0)
+				{
+					LIST_INSERT_TAIL(&foundCommands, &commands[command_idx]);
+					return CMD_INV_NUM_ARGS;
+				}
+				else
+					return command_idx;
+			}
+			// other cases
+			if (parameter_count != commands[command_idx].num_of_args)
 			{
 				// found but invalid number of commands (case 2)
 				LIST_INSERT_TAIL(&foundCommands, &commands[command_idx]);
