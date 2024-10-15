@@ -869,13 +869,6 @@ int command_tst(int number_of_arguments, char **arguments)
 // helpers
 int command_clear(int number_of_arguments, char **arguments)
 {
-	// accessing the screen buffer in the memeory
-	// KERNEL_BASE=0xF0000000
-	uint32 *crt_buf = (uint32 *)(0xF0000000 + CGA_BUF);
-
-	// setting the screen buffer content to spaces with black background
-	for (int i = 0; i < CRT_SIZE; i++)
-		crt_buf[i] = 0x0700 | ' ';
-	reset_cursor_position();
+	clear_screen_buffer();
 	return 0;
 }
