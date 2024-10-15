@@ -57,7 +57,7 @@ int getSharedObject(int32 ownerID, char* shareName, void* virtual_address);
 int freeSharedObject(int32 sharedObjectID, void *startVA);
 
 //2014
-inline struct FrameInfo** create_frames_storage();
+struct FrameInfo** create_frames_storage();
 
 //2017
 struct Share* get_share(int32 ownerID, char* name);

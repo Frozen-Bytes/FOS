@@ -10,8 +10,8 @@
 #include <inc/fixed_point.h>
 #include <kern/conc/spinlock.h>
 
-inline unsigned int nearest_pow2_ceil(unsigned int x) ;
-inline unsigned int log2_ceil(unsigned int x) ;
+unsigned int nearest_pow2_ceil(unsigned int x) ;
+unsigned int log2_ceil(unsigned int x) ;
 
 void scarce_memory();
 

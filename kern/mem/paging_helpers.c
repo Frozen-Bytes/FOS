@@ -7,7 +7,7 @@
 #include "memory_manager.h"
 
 /*[2.1] PAGE TABLE ENTRIES MANIPULATION */
-inline void pt_set_page_permissions(uint32* page_directory, uint32 virtual_address, uint32 permissions_to_set, uint32 permissions_to_clear)
+void pt_set_page_permissions(uint32* page_directory, uint32 virtual_address, uint32 permissions_to_set, uint32 permissions_to_clear)
 {
 	//[1] Get the table
 	uint32* ptr_page_table ;
@@ -32,7 +32,7 @@ inline void pt_set_page_permissions(uint32* page_directory, uint32 virtual_addre
 	tlb_invalidate((void *)NULL, (void *)virtual_address);
 }
 
-inline int pt_get_page_permissions(uint32* page_directory, uint32 virtual_address )
+int pt_get_page_permissions(uint32* page_directory, uint32 virtual_address )
 {
 	//[1] Get the table
 	uint32* ptr_page_table ;
@@ -52,7 +52,7 @@ inline int pt_get_page_permissions(uint32* page_directory, uint32 virtual_addres
 	}
 }
 
-inline void pt_clear_page_table_entry(uint32* page_directory, uint32 virtual_address)
+void pt_clear_page_table_entry(uint32* page_directory, uint32 virtual_address)
 {
 	//[1] Get the table
 	uint32* ptr_page_table ;
@@ -88,18 +88,18 @@ inline void pt_clear_page_table_entry(uint32* page_directory, uint32 virtual_add
 ///============================================================================================
 /// Dealing with page directory entry flags
 
-inline uint32 pd_is_table_used(uint32* page_directory, uint32 virtual_address)
+uint32 pd_is_table_used(uint32* page_directory, uint32 virtual_address)
 {
 	return ( (page_directory[PDX(virtual_address)] & PERM_USED) == PERM_USED ? 1 : 0);
 }
 
-inline void pd_set_table_unused(uint32* page_directory, uint32 virtual_address)
+void pd_set_table_unused(uint32* page_directory, uint32 virtual_address)
 {
 	page_directory[PDX(virtual_address)] &= (~PERM_USED);
 	tlb_invalidate((void *)NULL, (void *)virtual_address);
 }
 
-inline void pd_clear_page_dir_entry(uint32* page_directory, uint32 virtual_address)
+void pd_clear_page_dir_entry(uint32* page_directory, uint32 virtual_address)
 {
 	page_directory[PDX(virtual_address)] = 0 ;
 	tlbflush();

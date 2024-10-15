@@ -85,7 +85,7 @@ void free_share(struct Share* ptrShare)
 // [4] Create frames_storage:
 //===========================
 // Create the frames_storage and initialize it by 0
-inline struct FrameInfo** create_frames_storage(int numOfFrames)
+struct FrameInfo** create_frames_storage(int numOfFrames)
 {
 	//[PROJECT'24.MS2]
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING

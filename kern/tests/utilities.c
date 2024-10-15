@@ -93,7 +93,7 @@ void chktst(uint32 n)
 		panic("Error!! test fails at final");
 }
 
-inline unsigned int nearest_pow2_ceil(unsigned int x) {
+unsigned int nearest_pow2_ceil(unsigned int x) {
 	if (x <= 1) return 1;
 	int power = 2;
 	x--;
@@ -102,7 +102,7 @@ inline unsigned int nearest_pow2_ceil(unsigned int x) {
 	}
 	return power;
 }
-inline unsigned int log2_ceil(unsigned int x) {
+unsigned int log2_ceil(unsigned int x) {
 	if (x <= 1) return 1;
 	//int power = 2;
 	int bits_cnt = 2 ;

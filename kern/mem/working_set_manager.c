@@ -14,7 +14,7 @@
 /// Dealing with environment working set
 #if USE_KHEAP
 
-inline struct WorkingSetElement* env_page_ws_list_create_element(struct Env* e, uint32 virtual_address)
+struct WorkingSetElement* env_page_ws_list_create_element(struct Env* e, uint32 virtual_address)
 {
 	//[PROJECT'24.MS2] Create a new WS element
 	//If failed to create a new one, kernel should panic()!
@@ -23,7 +23,7 @@ inline struct WorkingSetElement* env_page_ws_list_create_element(struct Env* e, 
 	//Your Code is Here...
 
 }
-inline void env_page_ws_invalidate(struct Env* e, uint32 virtual_address)
+void env_page_ws_invalidate(struct Env* e, uint32 virtual_address)
 {
 	if (isPageReplacmentAlgorithmLRU(PG_REP_LRU_LISTS_APPROX))
 	{
@@ -142,14 +142,14 @@ void env_page_ws_print(struct Env *e)
 	}
 }
 #else
-inline uint32 env_page_ws_get_size(struct Env *e)
+uint32 env_page_ws_get_size(struct Env *e)
 {
 	int i=0, counter=0;
 	for(;i<e->page_WS_max_size; i++) if(e->ptr_pageWorkingSet[i].empty == 0) counter++;
 	return counter;
 }
 
-inline void env_page_ws_invalidate(struct Env* e, uint32 virtual_address)
+void env_page_ws_invalidate(struct Env* e, uint32 virtual_address)
 {
 	int i=0;
 	for(;i<e->page_WS_max_size; i++)
@@ -162,7 +162,7 @@ inline void env_page_ws_invalidate(struct Env* e, uint32 virtual_address)
 	}
 }
 
-inline void env_page_ws_set_entry(struct Env* e, uint32 entry_index, uint32 virtual_address)
+void env_page_ws_set_entry(struct Env* e, uint32 entry_index, uint32 virtual_address)
 {
 	assert(entry_index >= 0 && entry_index < e->page_WS_max_size);
 	assert(virtual_address >= 0 && virtual_address < USER_TOP);
@@ -174,7 +174,7 @@ inline void env_page_ws_set_entry(struct Env* e, uint32 entry_index, uint32 virt
 	return;
 }
 
-inline void env_page_ws_clear_entry(struct Env* e, uint32 entry_index)
+void env_page_ws_clear_entry(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < (e->page_WS_max_size));
 	e->ptr_pageWorkingSet[entry_index].virtual_address = 0;
@@ -182,19 +182,19 @@ inline void env_page_ws_clear_entry(struct Env* e, uint32 entry_index)
 	e->ptr_pageWorkingSet[entry_index].time_stamp = 0;
 }
 
-inline uint32 env_page_ws_get_virtual_address(struct Env* e, uint32 entry_index)
+uint32 env_page_ws_get_virtual_address(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < (e->page_WS_max_size));
 	return ROUNDDOWN(e->ptr_pageWorkingSet[entry_index].virtual_address,PAGE_SIZE);
 }
 
-inline uint32 env_page_ws_get_time_stamp(struct Env* e, uint32 entry_index)
+uint32 env_page_ws_get_time_stamp(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < (e->page_WS_max_size));
 	return e->ptr_pageWorkingSet[entry_index].time_stamp;
 }
 
-inline uint32 env_page_ws_is_entry_empty(struct Env* e, uint32 entry_index)
+uint32 env_page_ws_is_entry_empty(struct Env* e, uint32 entry_index)
 {
 	return e->ptr_pageWorkingSet[entry_index].empty;
 }
@@ -286,14 +286,14 @@ void env_table_ws_print(struct Env *e)
 	}
 }
 
-inline uint32 env_table_ws_get_size(struct Env *e)
+uint32 env_table_ws_get_size(struct Env *e)
 {
 	int i=0, counter=0;
 	for(;i<__TWS_MAX_SIZE; i++) if(e->__ptr_tws[i].empty == 0) counter++;
 	return counter;
 }
 
-inline void env_table_ws_invalidate(struct Env* e, uint32 virtual_address)
+void env_table_ws_invalidate(struct Env* e, uint32 virtual_address)
 {
 	int i=0;
 	for(;i<__TWS_MAX_SIZE; i++)
@@ -306,7 +306,7 @@ inline void env_table_ws_invalidate(struct Env* e, uint32 virtual_address)
 	}
 }
 
-inline void env_table_ws_set_entry(struct Env* e, uint32 entry_index, uint32 virtual_address)
+void env_table_ws_set_entry(struct Env* e, uint32 entry_index, uint32 virtual_address)
 {
 	assert(entry_index >= 0 && entry_index < __TWS_MAX_SIZE);
 	assert(virtual_address >= 0 && virtual_address < USER_TOP);
@@ -318,7 +318,7 @@ inline void env_table_ws_set_entry(struct Env* e, uint32 entry_index, uint32 vir
 	return;
 }
 
-inline void env_table_ws_clear_entry(struct Env* e, uint32 entry_index)
+void env_table_ws_clear_entry(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < __TWS_MAX_SIZE);
 	e->__ptr_tws[entry_index].virtual_address = 0;
@@ -326,20 +326,20 @@ inline void env_table_ws_clear_entry(struct Env* e, uint32 entry_index)
 	e->__ptr_tws[entry_index].time_stamp = 0;
 }
 
-inline uint32 env_table_ws_get_virtual_address(struct Env* e, uint32 entry_index)
+uint32 env_table_ws_get_virtual_address(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < __TWS_MAX_SIZE);
 	return ROUNDDOWN(e->__ptr_tws[entry_index].virtual_address,PAGE_SIZE*1024);
 }
 
 
-inline uint32 env_table_ws_get_time_stamp(struct Env* e, uint32 entry_index)
+uint32 env_table_ws_get_time_stamp(struct Env* e, uint32 entry_index)
 {
 	assert(entry_index >= 0 && entry_index < __TWS_MAX_SIZE);
 	return e->__ptr_tws[entry_index].time_stamp;
 }
 
-inline uint32 env_table_ws_is_entry_empty(struct Env* e, uint32 entry_index)
+uint32 env_table_ws_is_entry_empty(struct Env* e, uint32 entry_index)
 {
 	return e->__ptr_tws[entry_index].empty;
 }
