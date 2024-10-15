@@ -3,6 +3,7 @@ obj/
 
 # Log Files
 *.log
+logs/
 
 # VS Code settings
 .vscode/settings.json
