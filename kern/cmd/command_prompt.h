@@ -33,7 +33,10 @@ void command_prompt_readline(const char *, char *);
 void get_into_prompt() __attribute__((noreturn));
 
 /*2024*/
-int process_command(int number_of_arguments, char **arguments);
-bool is_subsequence(const char *subsequence, const char *sequence);
+int
+process_command(int number_of_arguments, char **arguments);
+
+bool
+is_subsequence(const char *subsequence, const char *sequence);
 
 #endif // !FOS_KERN_MONITOR_H
