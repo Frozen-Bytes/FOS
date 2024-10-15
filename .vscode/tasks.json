@@ -5,7 +5,23 @@
       "label": "build",
       "detail": "Compile and Run FOS",
       "type": "shell",
-      "command": "make -bmik qemu",
+      "command": "make qemu",
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "source": "gcc",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
       "group": {
         "kind": "build",
         "isDefault": true
@@ -15,21 +31,22 @@
       "label": "build-debug",
       "detail": "Compile and Run FOS in debug mode",
       "type": "shell",
-      "command": "make -bmik qemu-gdb",
+      "command": "make qemu-gdb",
       "isBackground": true,
       "problemMatcher": {
-        "pattern": [
-          {
-            "regexp": ".",
-            "file": 1,
-            "location": 2,
-            "message": 3
-          }
+        "owner": "cpp",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
         ],
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": ".",
-          "endsPattern": "gdb"
+        "source": "gcc",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
         }
       }
     },
@@ -37,7 +54,7 @@
       "label": "clean",
       "detail": "Clean build files",
       "type": "shell",
-      "command": "make -bmik clean",
+      "command": "make clean",
       "problemMatcher": []
     }
   ]
