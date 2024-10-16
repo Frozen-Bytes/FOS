@@ -68,7 +68,7 @@ include user/Makefrag
 # Emulators
 
 QEMUEXTRAS	= -chardev stdio,id=char0,mux=on,logfile=$(LOGSDIR)/$(LOGFILE).log,logappend=on -parallel chardev:char0
-QEMUOPTS 	= -drive file=$(IMAGE),media=disk,format=raw -smp 2 -m 32 $(QEMUEXTRAS)
+QEMUOPTS 	= -drive file=$(IMAGE),media=disk,format=raw -smp 1 -m 256 $(QEMUEXTRAS)
 
 qemu: all
 	$(V)$(QEMU) $(QEMUOPTS)
