@@ -35,9 +35,9 @@ Closes/Fixes #1234
 ```
 
 - Always remember to make commit messages descriptive and don't forget to add a description if needed:
-    ```bash
-    git commit -m "conventional_type: message" -m "description"
-    ```
+```bash
+git commit -m "conventional_type: message" -m "description"
+```
 
 ## Bugs Reports
 
