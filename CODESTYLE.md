@@ -20,7 +20,7 @@ New code should be formatted automatically using `clang-format` and a `.clang-fo
 
 - **Variables**: Use `snake_case` for variable names (e.g., `my_variable`).
 - **Functions**: Use `snake_case` for function names (e.g., `my_function`).
-- **Types**: Use `CamelCase` for type names (e.g., `MyStruct`).
+- **Types**: Use `PascalCase` for type names (e.g., `MyStruct`).
 - Preprocessor macros are always `UPPER_SNAKE_CASE`.
   - There are a few grandfathered exceptions: `assert`, `panic`, `static_assert`, `offsetof`.
 
