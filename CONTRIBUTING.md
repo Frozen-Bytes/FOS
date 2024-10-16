@@ -31,7 +31,7 @@ conventional_type: short explanation of the commit
 
 Longer explanation explaining exactly what's changed, what bugs were fixed (with bug tracker reference if applicable).
 
-Closes #1234
+Closes/Fixes #1234
 ```
 
 - Always remember to make commit messages descriptive and don't forget to add a description if needed:
@@ -43,7 +43,7 @@ Closes #1234
 
 If you're reporting a bug make sure to list:
 1. The necessary steps to reproduce the issue.
-2. Expected outcome.
+2. Expected outcome (i.e. correct output).
 3. Description of the behavior.
 4. Screenshots; if relevant.
 
