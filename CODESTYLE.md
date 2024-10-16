@@ -48,6 +48,16 @@ same line as the else keyword, or on a line by itself if there is no else
 keyword. Example:
 
 ```C
+// Wrong (no space after `if`)
+if(condition) {
+  do_something();
+}
+
+// Correct
+if (condition) {
+  do_something();
+}
+
 // Wrong
 if (condition)
     print("true.\n");
