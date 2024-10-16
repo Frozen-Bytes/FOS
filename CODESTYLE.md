@@ -16,6 +16,13 @@ New code should be formatted automatically using `clang-format` and a `.clang-fo
 - Functions that take no arguments are declared `f(void)` not `f()`.
     - `f()` is incorrect in modern `C` and should be avoided.
 
+For VSCode editor:
+
+- To set a visual ruler at 80 characters, add the following line to your `settings.json`:
+```json
+"editor.rulers": [ 80 ],
+```
+
 ## 2. Naming Conventions
 
 - **Variables**: Use `snake_case` for variable names (e.g., `my_variable`).
