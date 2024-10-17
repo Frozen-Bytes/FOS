@@ -102,10 +102,16 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 	//==================================================================================
 
 	//TODO: [PROJECT'24.MS1 - #04] [3] DYNAMIC ALLOCATOR - initialize_dynamic_allocator
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("initialize_dynamic_allocator is not implemented yet");
-	//Your Code is Here...
 
+	LIST_INIT(&freeBlocksList);
+	uint32 *beg_block = (uint32*)daStart;
+	*beg_block = 1;
+	struct BlockElement *first_free_block = (struct BlockElement*)(beg_block + 2); // Initialize the first free block leaving space for the header 
+	uint32 first_free_block_size = initSizeOfAllocatedSpace - (2 * sizeof(int)); // size of the free block subtracting BEG & END
+	set_block_data(first_free_block, first_free_block_size, 0);
+	LIST_INSERT_HEAD(&freeBlocksList, first_free_block);
+	uint32 *end_block = (uint32*)(daStart + initSizeOfAllocatedSpace - sizeof(int));
+	*end_block = 1;
 }
 //==================================
 // [2] SET BLOCK HEADER & FOOTER:
@@ -113,9 +119,10 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 void set_block_data(void* va, uint32 totalSize, bool isAllocated)
 {
 	//TODO: [PROJECT'24.MS1 - #05] [3] DYNAMIC ALLOCATOR - set_block_data
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("set_block_data is not implemented yet");
-	//Your Code is Here...
+	uint32 *header = (uint32*) va - 1;
+	uint32 *footer = (uint32*)((uint8*)header + totalSize - sizeof(int));
+	*header = (totalSize | isAllocated);
+    *footer = *header;
 }
 
 
