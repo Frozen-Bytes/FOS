@@ -106,7 +106,7 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 	LIST_INIT(&freeBlocksList);
 	uint32 *beg_block = (uint32*)daStart;
 	*beg_block = 1;
-	struct BlockElement *first_free_block = (struct BlockElement*)(beg_block + 2); // Initialize the first free block leaving space for the header 
+	struct BlockElement *first_free_block = (struct BlockElement*)(beg_block + 2); // skip the BEG block (1 word) and the block's header (1 word) to initialize the first free block 
 	uint32 first_free_block_size = initSizeOfAllocatedSpace - (2 * sizeof(uint32)); // size of the free block subtracting BEG & END
 	set_block_data(first_free_block, first_free_block_size, 0);
 	LIST_INSERT_HEAD(&freeBlocksList, first_free_block);
