@@ -59,6 +59,13 @@ void* sbrk(int numOfPages);
 void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpace);
 void set_block_data(void* va, uint32 totalSize, bool isAllocated);
 void *alloc_block(uint32 size, int ALLOC_STRATEGY);
+
+void 
+block_split(void *blk, uint32 size);
+
+void
+mark_block_allocated(void *va);
+
 void *alloc_block_FF(uint32 size);
 void *alloc_block_BF(uint32 size);
 void *alloc_block_WF(uint32 size);
