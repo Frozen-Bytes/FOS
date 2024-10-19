@@ -130,8 +130,7 @@ void set_block_data(void* va, uint32 totalSize, bool isAllocated)
 //=========================================
 // [3] ALLOCATE BLOCK BY FIRST FIT:
 //=========================================
-void
-block_split(void *blk, uint32 size)
+void block_split(void *blk, uint32 size)
 {
     uint32 cur_blk_size = get_block_size(blk);
 
