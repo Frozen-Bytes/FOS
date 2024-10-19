@@ -9,6 +9,7 @@
 #include "../inc/dynamic_allocator.h"
 
 
+
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -170,12 +171,96 @@ void *alloc_block_BF(uint32 size)
 //===================================================
 // [5] FREE BLOCK WITH COALESCING:
 //===================================================
+
+uint32 *get_header(void *va)
+{
+	// move 4 bytes back from first free space.
+	uint32 *header = (uint32*) va - 1;
+	return header;
+}
+
+uint32 *get_footer(void *va)
+{
+	uint32 *header = (uint32*) va - 1;
+	// move to end of footer than go back 4 bytes.
+	uint32 *footer = (uint32*)((uint8*)header + get_block_size(va) - sizeof(uint32));
+	return footer;
+}
+
+
+void merge(void *va , void * v2)
+{
+	uint32 *left_header = get_header(va);
+	uint32 *right_footer = get_footer(v2);
+
+	uint32 new_sz = get_block_size(va) + get_block_size(v2);
+
+	*left_header = new_sz << 1;
+	*right_footer = *left_header;
+
+	LIST_REMOVE(&freeBlocksList , (struct BlockElement*)v2);
+}
+
+void insert_sorted(void *va) {
+	struct BlockElement *new_block = (struct BlockElement *)va;
+
+	// if list is empty , element needs to be inserted as head
+	if(LIST_EMPTY(&freeBlocksList)){
+		LIST_INSERT_HEAD(&freeBlocksList , new_block);
+		return;
+	}
+
+    struct BlockElement *cur_block = LIST_FIRST(&freeBlocksList);
+    struct BlockElement *prev_block = NULL;
+
+
+    while (cur_block != NULL && cur_block < (struct BlockElement *)va) {
+        prev_block = cur_block;
+        cur_block = LIST_NEXT(cur_block);
+    }
+
+
+	LIST_INSERT_BEFORE(&freeBlocksList , cur_block , new_block);
+
+}
+
+
+
 void free_block(void *va)
 {
-	//TODO: [PROJECT'24.MS1 - #07] [3] DYNAMIC ALLOCATOR - free_block
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("free_block is not implemented yet");
-	//Your Code is Here...
+	// if null or already free just return.
+	if(va == NULL || is_free_block(va)){
+		return;
+	}
+
+	uint32 *cur_header = get_header(va);
+	uint32 *cur_footer = get_footer(va);
+
+	// set lsb as 0 to mark it as free
+	*cur_header &= (~1);
+	*cur_footer = *cur_header;
+
+	uint32 *prev_footer = (uint32 *) cur_header - 1;
+	uint32 *nxt_header = (uint32 *) cur_footer + 1;
+
+	uint32 *nxt_va = nxt_header + 1;
+
+	uint32 prev_va_size = ((*prev_footer >> 1) - (2 * sizeof(uint32)));
+	uint32 *prev_va =  (uint32 *) ((uint8 *)prev_footer - prev_va_size);
+
+
+	
+	if(is_free_block(nxt_va)){
+		merge(va , nxt_va);
+	}
+
+	if(is_free_block(prev_va)){
+		merge(prev_va , va);
+	}
+
+	insert_sorted(va);
+
+
 }
 
 //=========================================
