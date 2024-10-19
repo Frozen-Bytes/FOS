@@ -66,4 +66,19 @@ void *alloc_block_NF(uint32 size);
 void free_block(void* va);
 void *realloc_block_FF(void* va, uint32 new_size);
 
+
+// helper functions
+uint32 *
+get_header(void *va);
+
+uint32 *
+get_footer(void *va);
+
+
+void
+merge(void *va , void *va2);
+
+void
+insert_sorted(void *va);
+
 #endif
