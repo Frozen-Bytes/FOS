@@ -60,12 +60,11 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 void set_block_data(void* va, uint32 totalSize, bool isAllocated);
 void *alloc_block(uint32 size, int ALLOC_STRATEGY);
 
-void 
-block_split(void *blk, uint32 size);
+void block_split(void *blk, uint32 size);
 
-void
-mark_block_allocated(void *va);
-
+// changes block state (reverses lsb)
+void reverse_lsb(void *va);
+void *handle_allocation(void *required_blk, uint32 required_size);
 void *alloc_block_FF(uint32 size);
 void *alloc_block_BF(uint32 size);
 void *alloc_block_WF(uint32 size);
@@ -75,17 +74,13 @@ void *realloc_block_FF(void* va, uint32 new_size);
 
 
 // helper functions
-uint32 *
-get_header(void *va);
+uint32* get_header(void *va);
 
-uint32 *
-get_footer(void *va);
+uint32* get_footer(void *va);
 
 
-void
-merge(void *va , void *va2);
+void merge(struct BlockElement *va , struct BlockElement *va2);
 
-void
-insert_sorted(void *va);
+void insert_sorted(struct BlockElement *va);
 
 #endif
