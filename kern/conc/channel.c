@@ -31,18 +31,18 @@ void sleep(struct Channel *chan, struct spinlock *lk)
 	//TODO: [PROJECT'24.MS1 - #10] [4] LOCKS - sleep
 
 	// To be able to release the sleep lock guard without missing wake-up
-	acquire_spinlock(ProcessQueues.qlock);
+	acquire_spinlock(&ProcessQueues.qlock);
 
 	// Release the given sleep lock guard before being blocked
 	release_spinlock(lk);
 
 	// Enqueue the current process into the given waiting queue and block it
 	struct Env *current_running_process = get_cpu_proc();
-	enqueue(chan->queue, current_running_process);
+	enqueue(&chan->queue, current_running_process);
 	current_running_process->env_status = ENV_BLOCKED;
 
 	// Release process queues lock to enable other processes to wake me
-	release_spinlock(ProcessQueues.qlock);
+	release_spinlock(&ProcessQueues.qlock);
 
 	// Let the scheduler go back to scheduling ready processes
 	sched();
