@@ -26,13 +26,33 @@ void init_channel(struct Channel *chan, char *name)
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 // Ref: xv6-x86 OS code
-void sleep(struct Channel *chan, struct spinlock* lk)
+void sleep(struct Channel *chan, struct spinlock *lk)
 {
 	//TODO: [PROJECT'24.MS1 - #10] [4] LOCKS - sleep
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("sleep is not implemented yet");
-	//Your Code is Here...
 
+	// To be able to release the sleep lock guard without missing wake-up
+	acquire_spinlock(ProcessQueues.qlock);
+
+	// Release the given sleep lock guard before being blocked
+	release_spinlock(lk);
+
+	// Enqueue the current process into the given waiting queue and block it
+	struct Env *current_running_process = get_cpu_proc();
+	enqueue(chan->queue, current_running_process);
+	current_running_process->env_status = ENV_BLOCKED;
+
+	// Release process queues lock to enable other processes to wake me
+	release_spinlock(ProcessQueues.qlock);
+
+	// Let the scheduler go back to scheduling ready processes
+	sched();
+
+	// When the 'current_running_process' that was blocked wakes up
+	// It will wake up here, as soon as it wakes up it should reacquire
+	// the guard so that when it goes back to the 'acquire_sleeplock'
+	// function's while loop, if it finds the sleep lock closed,
+	// it is still able to go to sleep again without missing wake-up
+	acquire_spinlock(lk);
 }
 
 //==================================================
