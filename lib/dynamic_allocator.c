@@ -223,7 +223,7 @@ alloc_block_FF(uint32 size)
 	LIST_FOREACH(blk, &freeBlocksList)
 	{
 		uint32 blk_size = get_block_size(blk);
-		if (blk_size >= required_size){
+		if (blk_size >= required_size) {
 			// Store the address of the allocated block
 			required_blk = (void *)blk;
 			break;
@@ -266,9 +266,9 @@ alloc_block_BF(uint32 size)
 
 	LIST_FOREACH(blk, &freeBlocksList)
 	{
-		uint32 blk_size= get_block_size(blk); 
-		if (blk_size >= required_size){
-			if(Best_size == -1 || blk_size < Best_size){
+		uint32 blk_size = get_block_size(blk); 
+		if (blk_size >= required_size) {
+			if (Best_size == -1 || blk_size < Best_size) {
 				// Store the address of the allocated block
 			    required_blk = (void *)blk;
 				Best_size = blk_size;
@@ -317,7 +317,7 @@ merge(struct BlockElement *va , struct BlockElement * v2)
 void 
 insert_sorted(struct BlockElement *va) {
 	// if list is empty , element needs to be inserted as head
-	if(LIST_EMPTY(&freeBlocksList)){
+	if (LIST_EMPTY(&freeBlocksList)) {
 		LIST_INSERT_HEAD(&freeBlocksList , va);
 		return;
 	}
@@ -325,8 +325,8 @@ insert_sorted(struct BlockElement *va) {
     struct BlockElement *cur_block = LIST_FIRST(&freeBlocksList);
 
 
-	LIST_FOREACH(cur_block , &freeBlocksList){
-		if(cur_block > va){ // insert before first element that exceeds me in location
+	LIST_FOREACH(cur_block , &freeBlocksList) {
+		if (cur_block > va) { // insert before first element that exceeds me in location
 			LIST_INSERT_BEFORE(&freeBlocksList , cur_block , va);
 			return;
 		}
@@ -340,7 +340,7 @@ void
 free_block(void *va)
 {
 	// if null or already free just return.
-	if(va == NULL || is_free_block(va)){
+	if (va == NULL || is_free_block(va)) {
 		return;
 	}
 
@@ -353,26 +353,26 @@ free_block(void *va)
 	insert_sorted(va);
 
 	// means there is an element behind me that is free
-	if(LIST_FIRST(&freeBlocksList) < (struct BlockElement *)va){
+	if (LIST_FIRST(&freeBlocksList) < (struct BlockElement *)va) {
 		uint32 *prev_footer = (uint32 *) cur_header - 1;
 		uint32 prev_va_size = ((*prev_footer & ~(0x1)) - (2 * sizeof(uint32)));
 		uint32 *prev_va =  (uint32 *) ((uint8 *)prev_footer - prev_va_size);
 
 		// check if the block before me is free
-		if(is_free_block(prev_va)){
+		if (is_free_block(prev_va)) {
 			merge((struct BlockElement *)prev_va , va);
 			va = prev_va;
 		}
 	}
 
 	// means there is an element after me that is free
-	if(LIST_LAST(&freeBlocksList) > (struct BlockElement *)va){
+	if (LIST_LAST(&freeBlocksList) > (struct BlockElement *)va) {
 		uint32 *prev_footer = (uint32 *) cur_header - 1;
 		uint32 *nxt_header = (uint32 *) cur_footer + 1;
 		uint32 *nxt_va = (uint32 *) nxt_header + 1;
 
 		// check if the block after me is free
-		if(is_free_block(nxt_va)){
+		if (is_free_block(nxt_va)) {
 			merge(va , (struct BlockElement *)nxt_va);
 		}
 	}
