@@ -4,6 +4,7 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
+#include <inc/queue.h>
 
 #include <kern/proc/user_environment.h>
 #include "../trap/syscall.h"
@@ -93,7 +94,7 @@ void chktst(uint32 n)
 		panic("Error!! test fails at final");
 }
 
-unsigned int nearest_pow2_ceil(unsigned int x) {
+inline unsigned int nearest_pow2_ceil(unsigned int x) {
 	if (x <= 1) return 1;
 	int power = 2;
 	x--;
@@ -102,7 +103,7 @@ unsigned int nearest_pow2_ceil(unsigned int x) {
 	}
 	return power;
 }
-unsigned int log2_ceil(unsigned int x) {
+inline unsigned int log2_ceil(unsigned int x) {
 	if (x <= 1) return 1;
 	//int power = 2;
 	int bits_cnt = 2 ;
@@ -143,6 +144,9 @@ void fixedPt2Str(fixed_point_t f, int num_dec_digits, char* output)
 
 }
 
+int __firstTimeSleep = 1;
+struct Channel __tstchan__ ;
+struct spinlock __tstchan_lk__;
 void sys_utilities(char* utilityName, int value)
 {
 	if (strncmp(utilityName, "__BSDSetNice@", strlen("__BSDSetNice@")) == 0)
@@ -224,6 +228,37 @@ void sys_utilities(char* utilityName, int value)
 			*numOfInstances = 1; //to indicate the success of test
 		}
 	}
+	else if (strcmp(utilityName, "__Sleep__") == 0)
+	{
+		if (__firstTimeSleep)
+		{
+			__firstTimeSleep = 0;
+			init_channel(&__tstchan__, "Test Channel");
+			init_spinlock(&__tstchan_lk__, "Test Channel Lock");
+		}
+		acquire_spinlock(&__tstchan_lk__);
+		sleep(&__tstchan__, &__tstchan_lk__);
+		release_spinlock(&__tstchan_lk__);
+	}
+	else if (strcmp(utilityName, "__WakeupOne__") == 0)
+	{
+		wakeup_one(&__tstchan__);
+	}
+	else if (strcmp(utilityName, "__WakeupAll__") == 0)
+	{
+		wakeup_all(&__tstchan__);
+	}
+	else if (strcmp(utilityName, "__GetChanQueueSize__") == 0)
+	{
+		int* numOfProcesses = (int*) value ;
+		*numOfProcesses = LIST_SIZE(&__tstchan__.queue);
+	}
+	else if (strcmp(utilityName, "__GetReadyQueueSize__") == 0)
+	{
+		int* numOfProcesses = (int*) value ;
+		*numOfProcesses = LIST_SIZE(&ProcessQueues.env_ready_queues[0]);
+	}
+
 	if ((int)value < 0)
 	{
 		if (strcmp(utilityName, "__ReplStrat__") == 0)

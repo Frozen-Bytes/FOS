@@ -125,4 +125,10 @@ DECLARE_START_OF(fib_memomize);
 DECLARE_START_OF(fib_loop);
 DECLARE_START_OF(matrix_operations);
 
+DECLARE_START_OF(tst_chan_all_master);
+DECLARE_START_OF(tst_chan_all_slave);
+DECLARE_START_OF(tst_chan_one_master);
+DECLARE_START_OF(tst_chan_one_slave);
+DECLARE_START_OF(mergesort_static);
+
 #endif /* KERN_USER_PROGRAMS_H_ */
