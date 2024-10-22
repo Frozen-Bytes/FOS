@@ -41,11 +41,11 @@ void sleep(struct Channel *chan, struct spinlock *lk)
 	enqueue(&chan->queue, current_running_process);
 	current_running_process->env_status = ENV_BLOCKED;
 
-	// Release process queues lock to enable other processes to wake me
-	release_spinlock(&ProcessQueues.qlock);
-
 	// Let the scheduler go back to scheduling ready processes
 	sched();
+	
+	// Release process queues lock to enable other processes to wake me
+	release_spinlock(&ProcessQueues.qlock);
 
 	// When the 'current_running_process' that was blocked wakes up
 	// It will wake up here, as soon as it wakes up it should reacquire
