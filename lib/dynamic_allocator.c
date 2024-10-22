@@ -157,18 +157,24 @@ block_split(void *blk, uint32 size)
 }
 
 void 
-reverse_lsb(void *blk){
+mark_blk_allocated(void *blk){
 	uint32 cur_blk_size = get_block_size(blk);
-	// reverses lsb
-    set_block_data(blk , cur_blk_size , is_free_block(blk));
+    set_block_data(blk , cur_blk_size , 1);
 }
+
+void 
+mark_blk_freed(void *blk){
+	uint32 cur_blk_size = get_block_size(blk);
+    set_block_data(blk , cur_blk_size , 0);
+}
+
 
 void*
 handle_allocation(void *required_blk, uint32 required_size) {
     if (required_blk != NULL) {
         // Split the block if it's too large
         block_split(required_blk, required_size);
-        reverse_lsb(required_blk);
+        mark_blk_allocated(required_blk);
 
         // Remove the block from the free list
         LIST_REMOVE(&freeBlocksList, (struct BlockElement*)required_blk);
@@ -182,7 +188,7 @@ handle_allocation(void *required_blk, uint32 required_size) {
     } else {
         // Split the block if it's too large
         block_split(required_blk, required_size);
-        reverse_lsb(required_blk);
+        mark_blk_allocated(required_blk);
         return required_blk;
     }
 }
@@ -247,7 +253,7 @@ alloc_block_BF(uint32 size)
 		if (size % 2 != 0) size++;	//ensure that the size is even (to use LSB as allocation flag)
 		if (size < DYN_ALLOC_MIN_BLOCK_SIZE)
 			size = DYN_ALLOC_MIN_BLOCK_SIZE ;
-		if (!is_initialized){
+		if (!is_initialized) {
 			uint32 required_size = size + 2*sizeof(int) /*header & footer*/ + 2*sizeof(int) /*da begin & end*/ ;
 			uint32 da_start = (uint32)sbrk(ROUNDUP(required_size, PAGE_SIZE)/PAGE_SIZE);
 			uint32 da_break = (uint32)sbrk(0);
@@ -260,7 +266,7 @@ alloc_block_BF(uint32 size)
 
 	// Calculate required size for the block (size of the block + 8 bytes for header and footer)
 	uint32 required_size = size + 2 * sizeof(int) /*header & footer*/;
-	uint32 Best_size = -1;
+	uint32 best_size = -1;
 	void *required_blk = NULL;
 	struct BlockElement *blk = NULL;
 
@@ -268,10 +274,10 @@ alloc_block_BF(uint32 size)
 	{
 		uint32 blk_size = get_block_size(blk); 
 		if (blk_size >= required_size) {
-			if (Best_size == -1 || blk_size < Best_size) {
+			if (best_size == -1 || blk_size < best_size) {
 				// Store the address of the allocated block
 			    required_blk = (void *)blk;
-				Best_size = blk_size;
+				best_size = blk_size;
 			}
 		}
 	}
@@ -284,7 +290,7 @@ alloc_block_BF(uint32 size)
 //===================================================
 
 uint32*
-get_header(void *va)
+get_header_of_block(void *va)
 {
 	// move 4 bytes back from first free space.
 	uint32 *header = (uint32*) va - 1;
@@ -292,7 +298,7 @@ get_header(void *va)
 }
 
 uint32*
-get_footer(void *va)
+get_footer_of_block(void *va)
 {
 	uint32 *header = (uint32*) va - 1;
 	// move to end of footer than go back 4 bytes.
@@ -302,7 +308,7 @@ get_footer(void *va)
 
 
 void 
-merge(struct BlockElement *va , struct BlockElement * v2)
+merge_blocks(struct BlockElement *va , struct BlockElement * v2)
 {
 	// remove right block from free list 
 	LIST_REMOVE(&freeBlocksList , v2);
@@ -315,7 +321,7 @@ merge(struct BlockElement *va , struct BlockElement * v2)
 }
 
 void 
-insert_sorted(struct BlockElement *va) {
+insert_sorted_into_free_list(struct BlockElement *va) {
 	// if list is empty , element needs to be inserted as head
 	if (LIST_EMPTY(&freeBlocksList)) {
 		LIST_INSERT_HEAD(&freeBlocksList , va);
@@ -344,13 +350,13 @@ free_block(void *va)
 		return;
 	}
 
-	uint32 *cur_header = get_header(va);
-	uint32 *cur_footer = get_footer(va);
+	uint32 *cur_header = get_header_of_block(va);
+	uint32 *cur_footer = get_footer_of_block(va);
 
-	reverse_lsb(va);
+	mark_blk_freed(va);
 
 	// insert either way
-	insert_sorted(va);
+	insert_sorted_into_free_list(va);
 
 	// means there is an element behind me that is free
 	if (LIST_FIRST(&freeBlocksList) < (struct BlockElement *)va) {
@@ -360,7 +366,7 @@ free_block(void *va)
 
 		// check if the block before me is free
 		if (is_free_block(prev_va)) {
-			merge((struct BlockElement *)prev_va , va);
+			merge_blocks((struct BlockElement *)prev_va , va);
 			va = prev_va;
 		}
 	}
@@ -373,7 +379,7 @@ free_block(void *va)
 
 		// check if the block after me is free
 		if (is_free_block(nxt_va)) {
-			merge(va , (struct BlockElement *)nxt_va);
+			merge_blocks(va , (struct BlockElement *)nxt_va);
 		}
 	}
 	
