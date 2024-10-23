@@ -71,7 +71,7 @@ void print_blocks_list(struct MemBlock_LIST list)
 	cprintf("\nDynAlloc Blocks List:\n");
 	LIST_FOREACH(blk, &list)
 	{
-		cprintf("(size: %d, isFree: %d)\n", get_block_size(blk), is_free_block(blk)) ;
+		cprintf("(size: %d, isFree: %d, address: %p)\n", get_block_size(blk), is_free_block(blk), blk) ;
 	}
 	cprintf("=========================================\n");
 
@@ -391,8 +391,88 @@ void *realloc_block_FF(void* va, uint32 new_size)
 {
 	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("realloc_block_FF is not implemented yet");
+	//panic("realloc_block_FF is not implemented yet");
 	//Your Code is Here...
+
+	if (va == NULL && new_size == 0) {
+		return NULL;
+	}
+
+	if (va == NULL) {
+		return alloc_block_FF(new_size);
+	}
+
+	if (new_size == 0) {
+		free_block(va);
+		return NULL;
+	}
+
+	uint32 old_size = get_block_size(va);
+	uint32 new_required_size = new_size + 2 * sizeof(uint32);
+
+	if (new_required_size == old_size) {
+		return va;
+	}
+
+	// cprintf("                        old/cur: %d, new: %d\n", old_size, new_required_size);
+
+	// reallocation always happens in place
+	if (new_required_size < old_size) {
+		cprintf("block is getting smaller\n");
+
+		uint32 remaining_block_size = old_size - new_required_size;
+		if (remaining_block_size >= 16) {
+			// take only required size
+			set_block_data(va, new_required_size, 1);
+
+			// add remaining part to freeBlockList
+			uint32 *free_block_va = va + new_required_size;
+			set_block_data(free_block_va, remaining_block_size, 1);
+			free_block(free_block_va);
+		}
+
+		return va;
+	}
+
+	uint32 *next_block_va = va + old_size;
+	uint32 next_block_size = get_block_size(next_block_va);
+	uint32 total_size = old_size + next_block_size + 2 * sizeof(uint32);
+
+	// cprintf("                        curr block size: %d\n", old_size);
+	// cprintf("                        next block size: %d\n", next_block_size);
+	// cprintf("                        va at: %p, next_va at: %p\n", (uint32*)va, next_block_va);
+	// print_blocks_list(freeBlocksList);
+
+	// relocated
+	if (!is_free_block(next_block_va) || total_size < new_required_size) {
+		cprintf("block is getting moved, because of: %d %d\n", total_size, new_required_size);
+		free_block(va);
+		return alloc_block_FF(new_size);
+	}
+	// in-place:
+	// cprintf("block is getting bigger in place\n");
+
+	// remove next_block from the free list
+	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
+
+	uint32 remaining_block_size = total_size - new_required_size;
+
+	// cprintf("total size: %d, remaining: %d\n", total_size, remaining_block_size);
+
+	if (remaining_block_size < 16) {
+		// must take the whole block
+		set_block_data(va, new_required_size, 1);
+	} else {
+		// take only required size
+		set_block_data(va, new_required_size, 1);
+
+		// add remaining part to freeBlockList
+		uint32 *free_block_va = va + new_required_size;
+		set_block_data(free_block_va, remaining_block_size, 1);
+		free_block(free_block_va);
+	}
+
+	return va;
 }
 
 /*********************************************************************************************/
