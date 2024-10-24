@@ -3,9 +3,76 @@
   "tasks": [
     {
       "label": "build",
-      "detail": "Compile and Run FOS",
+      "detail": "Compile FOS",
       "type": "shell",
-      "command": "make qemu",
+      "command": "make -j8",
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "source": "gcc",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "build-qemu",
+      "detail": "Compile and Run FOS (QEMU)",
+      "type": "shell",
+      "command": "make -j8 qemu",
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "source": "gcc",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "build-debug-qemu",
+      "detail": "Compile and Run FOS in debug mode (QEMU)",
+      "type": "shell",
+      "command": "make -j8 qemu-gdb",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "source": "gcc",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "build-bochs",
+      "detail": "Compile and Run FOS (BOCHS)",
+      "type": "shell",
+      "command": "make -j8 bochs",
       "problemMatcher": {
         "owner": "cpp",
         "fileLocation": [
@@ -26,36 +93,6 @@
         "kind": "build",
         "isDefault": true
       }
-    },
-    {
-      "label": "build-debug",
-      "detail": "Compile and Run FOS in debug mode",
-      "type": "shell",
-      "command": "make qemu-gdb",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "cpp",
-        "fileLocation": [
-          "relative",
-          "${workspaceFolder}"
-        ],
-        "source": "gcc",
-        "pattern": {
-          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
-          "file": 1,
-          "line": 2,
-          "column": 3,
-          "severity": 4,
-          "message": 5
-        }
-      }
-    },
-    {
-      "label": "clean",
-      "detail": "Clean build files",
-      "type": "shell",
-      "command": "make clean",
-      "problemMatcher": []
     }
   ]
 }

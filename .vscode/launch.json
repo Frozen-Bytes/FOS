@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "FOS (Debug)",
+      "name": "FOS QEMU (Debug)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceRoot}/obj/kern/kernel",
@@ -25,7 +25,7 @@
           "ignoreFailures": true
         }
       ],
-      "preLaunchTask": "build-debug",
+      "preLaunchTask": "build-debug-qemu",
     }
   ]
 }
