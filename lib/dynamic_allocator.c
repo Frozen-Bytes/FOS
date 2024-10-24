@@ -8,7 +8,20 @@
 #include <inc/string.h>
 #include "../inc/dynamic_allocator.h"
 
+int dprintf(const char *fmt, ...)
+{
+	cprintf("\x1b[31m");
 
+	va_list ap;
+	int cnt;
+	printProgName = 1 ;
+	va_start(ap, fmt);
+	cnt = vcprintf(fmt, ap);
+	va_end(ap);
+
+	cprintf("\x1b[0m");
+	return cnt;
+}
 
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
@@ -117,7 +130,7 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 //==================================
 // [2] SET BLOCK HEADER & FOOTER:
 //==================================
-void set_block_data(void* va, uint32 totalSize, bool isAllocated)
+void 	set_block_data(void* va, uint32 totalSize, bool isAllocated)
 {
 	//TODO: [PROJECT'24.MS1 - #05] [3] DYNAMIC ALLOCATOR - set_block_data
 	uint32 *header = (uint32*) va - 1;
@@ -392,11 +405,6 @@ free_block(void *va)
 void*
 shrink(void* va, uint32 old_size, uint32 new_required_size)
 {
-	if (is_free_block(va)) {
-		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
-		set_block_data(va, old_size, 1);
-	}
-
 	uint32 remaining_block_size = old_size - new_required_size;
 
 	// if the remaining_block_size < 16, leave the block with the same size 
@@ -431,11 +439,6 @@ expand(void* va, uint32 old_size, uint32 new_required_size)
 		return NULL;
 	}
 
-	if (is_free_block(va)) {
-		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
-		set_block_data(va, old_size, 1);
-	}
-
 	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
 
 	set_block_data(va, new_required_size, 1);
@@ -453,11 +456,11 @@ expand(void* va, uint32 old_size, uint32 new_required_size)
 	return va;
 }
 
-void *realloc_block_FF(void* va, uint32 new_size)
+void*
+realloc_block_FF(void* va, uint32 new_size)
 {
 	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("realloc_block_FF is not implemented yet");
 	//Your Code is Here...
 
 	// handle nulls cases:
@@ -477,28 +480,29 @@ void *realloc_block_FF(void* va, uint32 new_size)
 	uint32 old_size = get_block_size(va);
 	uint32 new_required_size = new_size + 2 * sizeof(uint32);
 
+	if (is_free_block(va)) {
+		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
+		set_block_data(va, old_size, 1);
+	}
+
 	if (new_required_size == old_size) {
-		if (is_free_block(va)) {
-			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
-		}
-		set_block_data(va, new_required_size, 1);
 		return va;
 	}
 
 	if (new_required_size < old_size) {
 		return shrink(va, old_size, new_required_size);
+	} else {
+		void *new_va = expand(va, old_size, new_required_size);
+		
+		// expand happened
+		if (new_va == va) {
+			return new_va;
+		// re-location happnes
+		} else {
+			free_block(va);
+			return alloc_block_FF(new_size);
+		}
 	}
-
-	void *new_va = expand(va, old_size, new_required_size);
-
-	// expand happend in place
-	if (new_va == va) {
-		return new_va;
-	}
-
-	// re-location happnes
-	free_block(va);
-	return alloc_block_FF(new_size);
 }
 
 /*********************************************************************************************/
