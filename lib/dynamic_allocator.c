@@ -387,65 +387,53 @@ free_block(void *va)
 //=========================================
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
-void *realloc_block_FF(void* va, uint32 new_size)
+
+void*
+shrink(void* va, uint32 old_size, uint32 new_required_size)
 {
-	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("realloc_block_FF is not implemented yet");
-	//Your Code is Here...
-
-	if (va == NULL && new_size == 0) {
-		return NULL;
+	if (is_free_block(va)) {
+		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
+		set_block_data(va, old_size, 1);
 	}
 
-	if (va == NULL) {
-		return alloc_block_FF(new_size);
+	uint32 remaining_block_size = old_size - new_required_size;
+
+	// if the remaining_block_size < 16, leave the block with the same size 
+	// else: split
+	if (remaining_block_size >= 16) {
+		// take only required size
+		set_block_data(va, new_required_size, 1);
+
+		// add remaining part to freeBlockList
+		uint32 *free_block_va = va + new_required_size;
+		set_block_data(free_block_va, remaining_block_size, 1);
+		free_block(free_block_va);
 	}
+	return va;
+}
 
-	if (new_size == 0) {
-		free_block(va);
-		return NULL;
-	}
-
-	uint32 old_size = get_block_size(va);
-	uint32 new_required_size = new_size + 2 * sizeof(uint32);
-
-	if (new_required_size == old_size) {
-		return va;
-	}
-
-	// reallocation always happens in place
-	if (new_required_size < old_size) {
-		uint32 remaining_block_size = old_size - new_required_size;
-
-		// if the remaining_block_size < 16, leave the block with the same size 
-		// else: split
-		if (remaining_block_size >= 16) {
-			// take only required size
-			set_block_data(va, new_required_size, 1);
-
-			// add remaining part to freeBlockList
-			uint32 *free_block_va = va + new_required_size;
-			set_block_data(free_block_va, remaining_block_size, 1);
-			free_block(free_block_va);
-		}
-
-		return va;
-	}
+void*
+expand(void* va, uint32 old_size, uint32 new_required_size)
+{
+	// no free blocks in front of va
+	// if (LIST_LAST(&freeBlocksList) <= (struct BlockElement *)va) {
+	// 	return NULL;
+	// }
 
 	uint32 *next_block_va = va + old_size;
 	uint32 next_block_size = get_block_size(next_block_va);
 
-	// both blocks has header and footer, when merged only one is header/footer used
-	// so one header and one footer will get freed => + 2 * sizeof(uint32)
 	uint32 total_size = old_size + next_block_size + 2 * sizeof(uint32);
 
-	// re-locate:
+	// cannot expand in place
 	if (!is_free_block(next_block_va) || total_size < new_required_size) {
-		free_block(va);
-		return alloc_block_FF(new_size);
+		return NULL;
 	}
-	// in-place:
+
+	if (is_free_block(va)) {
+		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
+		set_block_data(va, old_size, 1);
+	}
 
 	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
 
@@ -462,6 +450,54 @@ void *realloc_block_FF(void* va, uint32 new_size)
 	}
 
 	return va;
+}
+
+void *realloc_block_FF(void* va, uint32 new_size)
+{
+	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
+	//COMMENT THE FOLLOWING LINE BEFORE START CODING
+	//panic("realloc_block_FF is not implemented yet");
+	//Your Code is Here...
+
+	// handle nulls cases:
+	if (va == NULL) {
+		if (new_size == 0) {
+			return NULL;
+		} else {
+			return alloc_block_FF(new_size);
+		}
+	}
+
+	if (new_size == 0) {
+		free_block(va);
+		return NULL;
+	}
+
+	uint32 old_size = get_block_size(va);
+	uint32 new_required_size = new_size + 2 * sizeof(uint32);
+
+	if (new_required_size == old_size) {
+		if (is_free_block(va)) {
+			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
+		}
+		set_block_data(va, new_required_size, 1);
+		return va;
+	}
+
+	if (new_required_size < old_size) {
+		return shrink(va, old_size, new_required_size);
+	}
+
+	void *new_va = expand(va, old_size, new_required_size);
+
+	// expand happend in place
+	if (new_va == va) {
+		return new_va;
+	}
+
+	// re-location happnes
+	free_block(va);
+	return alloc_block_FF(new_size);
 }
 
 /*********************************************************************************************/
