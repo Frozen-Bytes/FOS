@@ -76,6 +76,11 @@ qemu: all
 qemu-gdb: all
 	$(QEMU) $(QEMUOPTS) -S -s
 
+bochs: all
+	bochs -q
+
+bochs-gdb: all
+	bochs-gdb -qf ".bochsrc-debug"
 
 # For deleting the build
 
