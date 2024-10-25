@@ -431,6 +431,24 @@ shrink(void* va, uint32 new_required_size)
 		uint32 *free_block_va = va + new_required_size;
 		set_block_data(free_block_va, remaining_block_size, 1);
 		free_block(free_block_va);
+	} else {
+		uint32 *next_block_va = va + old_size;
+
+		// next block isn't END, and is free and can be merged
+		if (is_valid_block(next_block_va) && is_free_block(next_block_va)) {
+			uint32 merged_block_size = remaining_block_size + get_block_size(next_block_va);
+
+			// a valid block can be made
+			if (merged_block_size >= 16) {
+				set_block_data(va, new_required_size, 1);
+
+				uint32 *free_block_va = va + new_required_size;
+				set_block_data(free_block_va, remaining_block_size, 1);
+				free_block(free_block_va);
+
+				merge_blocks((struct BlockElement *)free_block_va, (struct BlockElement *)next_block_va);
+			}
+		}
 	}
 	return va;
 }
@@ -460,16 +478,20 @@ expand(void* va, uint32 new_required_size)
 
 	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
 
-	set_block_data(va, new_required_size, 1);
-
 	uint32 remaining_block_size = total_size - new_required_size;
 
-	// can split
+	// can split, and get a new freeBlock
 	if (remaining_block_size >= 16) {
-		// add remaining block to freeBlocksList
+		// take only required size
+		set_block_data(va, new_required_size, 1);
+
+		// split the remaining block to be free one
 		uint32 *free_block_va = va + new_required_size;
 		set_block_data(free_block_va, remaining_block_size, 1);
 		free_block(free_block_va);
+	} else {
+		// cannot split, leading to internal fragmentation
+		set_block_data(va, total_size, 1);
 	}
 
 	return va;
