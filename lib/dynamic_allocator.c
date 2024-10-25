@@ -8,20 +8,6 @@
 #include <inc/string.h>
 #include "../inc/dynamic_allocator.h"
 
-int dprintf(const char *fmt, ...)
-{
-	cprintf("\x1b[31m");
-
-	va_list ap;
-	int cnt;
-	printProgName = 1 ;
-	va_start(ap, fmt);
-	cnt = vcprintf(fmt, ap);
-	va_end(ap);
-
-	cprintf("\x1b[0m");
-	return cnt;
-}
 
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
