@@ -516,6 +516,12 @@ realloc_block_FF(void* va, uint32 new_size)
 		return NULL;
 	}
 
+	{
+		if (new_size % 2 != 0) new_size++;	//ensure that the size is even (to use LSB as allocation flag)
+		if (new_size < DYN_ALLOC_MIN_BLOCK_SIZE)
+			new_size = DYN_ALLOC_MIN_BLOCK_SIZE;
+	}
+
 	uint32 old_size = get_block_size(va);
 	uint32 new_required_size = new_size + 2 * sizeof(uint32);
 
