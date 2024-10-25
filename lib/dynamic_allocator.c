@@ -196,6 +196,8 @@ handle_allocation(void *required_blk, uint32 required_size) {
 void*
 alloc_block_FF(uint32 size)
 {
+	if (size == 0)
+	   return NULL;
 	//==================================================================================
 	//DON'T CHANGE THESE LINES==========================================================
 	//==================================================================================
@@ -218,9 +220,6 @@ alloc_block_FF(uint32 size)
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
 	//panic("alloc_block_FF is not implemented yet");
 	//Your Code is Here...
-	if (size == 0)
-		return NULL;
-
     // Calculate required size for the block (size of the block + 8 bytes for header and footer)
 	uint32 required_size = size + 2 * sizeof(int);
 	void *required_blk = NULL;
@@ -244,6 +243,8 @@ alloc_block_FF(uint32 size)
 void*
 alloc_block_BF(uint32 size)
 {
+	if (size == 0)
+	  return NULL;
 	//TODO: [PROJECT'24.MS1 - BONUS] [3] DYNAMIC ALLOCATOR - alloc_block_BF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
 	//panic("alloc_block_BF is not implemented yet");
@@ -261,8 +262,6 @@ alloc_block_BF(uint32 size)
 		}
 	}
 	//==================================================================================
-    if (size == 0)
-		return NULL;
 
 	// Calculate required size for the block (size of the block + 8 bytes for header and footer)
 	uint32 required_size = size + 2 * sizeof(int) /*header & footer*/;
