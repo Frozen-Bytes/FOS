@@ -402,13 +402,27 @@ free_block(void *va)
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
 
-void*
-shrink(void* va, uint32 old_size, uint32 new_required_size)
+int is_valid_block(void* va)
 {
+	// BEG/END are special blocks, their size=0 and marked allocated
+	// so if the block doesn't have these specs, it's valid to use
+	return !(get_block_size(va) == 0 && is_free_block(va));
+}
+
+void*
+shrink(void* va, uint32 new_required_size)
+{
+	// avoid accessing nullptr
+	assert(va != NULL);
+
+	uint32 old_size = get_block_size(va);
 	uint32 remaining_block_size = old_size - new_required_size;
 
-	// if the remaining_block_size < 16, leave the block with the same size 
-	// else: split
+	// avoid unsigned int wrapping
+	assert(old_size >= new_required_size);
+
+	// if remaining_block_size >= 16: split
+	// else: check if can be merged with a free block infront of it and resulting_size >= 16
 	if (remaining_block_size >= 16) {
 		// take only required size
 		set_block_data(va, new_required_size, 1);
@@ -422,19 +436,24 @@ shrink(void* va, uint32 old_size, uint32 new_required_size)
 }
 
 void*
-expand(void* va, uint32 old_size, uint32 new_required_size)
+expand(void* va, uint32 new_required_size)
 {
+	// avoid accessing nullptr
+	assert(va != NULL);
+
 	// no free blocks in front of va
-	// if (LIST_LAST(&freeBlocksList) <= (struct BlockElement *)va) {
-	// 	return NULL;
-	// }
+	if (LIST_LAST(&freeBlocksList) <= (struct BlockElement *)va) {
+		return NULL;
+	}
 
+	uint32 old_size = get_block_size(va);
 	uint32 *next_block_va = va + old_size;
+	if (!is_valid_block(next_block_va)) {
+		return NULL;
+	}
+
 	uint32 next_block_size = get_block_size(next_block_va);
-
-	uint32 total_size = old_size + next_block_size + 2 * sizeof(uint32);
-
-	// cannot expand in place
+	uint32 total_size = old_size + next_block_size;
 	if (!is_free_block(next_block_va) || total_size < new_required_size) {
 		return NULL;
 	}
@@ -447,7 +466,7 @@ expand(void* va, uint32 old_size, uint32 new_required_size)
 
 	// can split
 	if (remaining_block_size >= 16) {
-		// add remaining part to freeBlocksList
+		// add remaining block to freeBlocksList
 		uint32 *free_block_va = va + new_required_size;
 		set_block_data(free_block_va, remaining_block_size, 1);
 		free_block(free_block_va);
@@ -490,9 +509,9 @@ realloc_block_FF(void* va, uint32 new_size)
 	}
 
 	if (new_required_size < old_size) {
-		return shrink(va, old_size, new_required_size);
+		return shrink(va, new_required_size);
 	} else {
-		void *new_va = expand(va, old_size, new_required_size);
+		void *new_va = expand(va, new_required_size);
 		
 		// expand happened
 		if (new_va == va) {
