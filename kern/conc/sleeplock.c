@@ -37,11 +37,24 @@ void acquire_sleeplock(struct sleeplock *lk)
 	// panic("acquire_sleeplock is not implemented yet");
 	//Your Code is Here...
 
+	assert(lk);
+
+	if (holding_sleeplock(lk)) {
+		panic("acquire_sleeplock: lock \"%s\" is already held by the same CPU.", lk->name);
+	}
+
 	acquire_spinlock(&lk->lk);
+
 	while (lk->locked) {
 		sleep(&lk->chan, &lk->lk);
 	}
 	lk->locked = 1;
+
+	// set debug information
+	struct Env *env = get_cpu_proc();
+	lk->pid = env->env_id;
+	strncpy(lk->name, env->prog_name, NAMELEN);
+
 	release_spinlock(&lk->lk);
 }
 
@@ -52,10 +65,34 @@ void release_sleeplock(struct sleeplock *lk)
 	// panic("release_sleeplock is not implemented yet");
 	//Your Code is Here...
 
+	assert(lk);
+
+	if (!holding_sleeplock(lk)) {
+		printcallstack_sleeplock(lk);
+		panic("release_sleeplock: lock \"%s\" is either not held or held by another CPU!", lk->name);
+	}
+
 	acquire_spinlock(&lk->lk);
+
+	// clear debug information
+	lk->pid = 0;
+	memset(lk->name, '\0', NAMELEN);
+
 	lk->locked = 0;
 	if (queue_size(&lk->chan.queue) > 0) {
 		wakeup_all(&lk->chan);
 	}
+
 	release_spinlock(&lk->lk);
+}
+
+void
+printcallstack_sleeplock(const struct sleeplock *lk)
+{
+	cprintf("\nCaller Stack:\n");
+	uint32 pcs[10] = {};
+	int stacklen = 	getcallerpcs(&lk,  pcs);
+	for (int i = 0; i < stacklen; ++i) {
+		cprintf("  PC[%d] = %x\n", i, pcs[i]);
+	}
 }
