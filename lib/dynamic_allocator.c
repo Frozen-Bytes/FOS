@@ -10,6 +10,7 @@
 
 
 
+
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -71,7 +72,7 @@ void print_blocks_list(struct MemBlock_LIST list)
 	cprintf("\nDynAlloc Blocks List:\n");
 	LIST_FOREACH(blk, &list)
 	{
-		cprintf("(size: %d, isFree: %d)\n", get_block_size(blk), is_free_block(blk)) ;
+		cprintf("(size: %d, isFree: %d, address: %p)\n", get_block_size(blk), is_free_block(blk), blk) ;
 	}
 	cprintf("=========================================\n");
 
@@ -219,7 +220,11 @@ alloc_block_FF(uint32 size)
 	//TODO: [PROJECT'24.MS1 - #06] [3] DYNAMIC ALLOCATOR - alloc_block_FF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
 	//panic("alloc_block_FF is not implemented yet");
+	//panic("alloc_block_FF is not implemented yet");
 	//Your Code is Here...
+	if (size == 0)
+		return NULL;
+
     // Calculate required size for the block (size of the block + 8 bytes for header and footer)
 	uint32 required_size = size + 2 * sizeof(int);
 	void *required_blk = NULL;
@@ -240,6 +245,7 @@ alloc_block_FF(uint32 size)
 //=========================================
 // [4] ALLOCATE BLOCK BY BEST FIT:
 //=========================================
+
 void*
 alloc_block_BF(uint32 size)
 {
@@ -247,6 +253,7 @@ alloc_block_BF(uint32 size)
 	  return NULL;
 	//TODO: [PROJECT'24.MS1 - BONUS] [3] DYNAMIC ALLOCATOR - alloc_block_BF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
+	//panic("alloc_block_BF is not implemented yet");
 	//panic("alloc_block_BF is not implemented yet");
 	//Your Code is Here...
     //==================================================================================
@@ -262,6 +269,8 @@ alloc_block_BF(uint32 size)
 		}
 	}
 	//==================================================================================
+    if (size == 0)
+		return NULL;
 
 	// Calculate required size for the block (size of the block + 8 bytes for header and footer)
 	uint32 required_size = size + 2 * sizeof(int) /*header & footer*/;
@@ -391,8 +400,78 @@ void *realloc_block_FF(void* va, uint32 new_size)
 {
 	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("realloc_block_FF is not implemented yet");
+	//panic("realloc_block_FF is not implemented yet");
 	//Your Code is Here...
+
+	if (va == NULL && new_size == 0) {
+		return NULL;
+	}
+
+	if (va == NULL) {
+		return alloc_block_FF(new_size);
+	}
+
+	if (new_size == 0) {
+		free_block(va);
+		return NULL;
+	}
+
+	uint32 old_size = get_block_size(va);
+	uint32 new_required_size = new_size + 2 * sizeof(uint32);
+
+	if (new_required_size == old_size) {
+		return va;
+	}
+
+	// reallocation always happens in place
+	if (new_required_size < old_size) {
+		uint32 remaining_block_size = old_size - new_required_size;
+
+		// if the remaining_block_size < 16, leave the block with the same size 
+		// else: split
+		if (remaining_block_size >= 16) {
+			// take only required size
+			void *req = va;
+			set_block_data(req, new_required_size, 1);
+
+			// add remaining part to freeBlockList
+			uint32 *free_block_va = va + new_required_size;
+			set_block_data(free_block_va, remaining_block_size, 1);
+			free_block(free_block_va);
+		}
+
+		return va;
+	}
+
+	uint32 *next_block_va = va + old_size;
+	uint32 next_block_size = get_block_size(next_block_va);
+
+	// both blocks has header and footer, when merged only one is header/footer used
+	// so one header and one footer will get freed => + 2 * sizeof(uint32)
+	uint32 total_size = old_size + next_block_size + 2 * sizeof(uint32);
+
+	// re-locate:
+	if (!is_free_block(next_block_va) || total_size < new_required_size) {
+		free_block(va);
+		return alloc_block_FF(new_size);
+	}
+	// in-place:
+
+	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
+
+	set_block_data(va, new_required_size, 1);
+
+	uint32 remaining_block_size = total_size - new_required_size;
+
+	// can split
+	if (remaining_block_size >= 16) {
+		// add remaining part to freeBlocksList
+		uint32 *free_block_va = va + new_required_size;
+		set_block_data(free_block_va, remaining_block_size, 1);
+		free_block(free_block_va);
+	}
+
+	return va;
 }
 
 /*********************************************************************************************/
