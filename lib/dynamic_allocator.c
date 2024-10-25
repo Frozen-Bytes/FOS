@@ -402,11 +402,24 @@ free_block(void *va)
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
 
-int is_valid_block(void* va)
+int
+is_valid_block(void* va)
 {
 	// BEG/END are special blocks, their size=0 and marked allocated
 	// so if the block doesn't have these specs, it's valid to use
 	return !(get_block_size(va) == 0 && is_free_block(va));
+}
+
+void
+set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_block_size)
+{
+	// take only required size
+	set_block_data(va, new_required_size, 1);
+
+	// split the remaining block to be free one
+	uint32 *free_block_va = va + new_required_size;
+	set_block_data(free_block_va, remaining_block_size, 1);
+	free_block(free_block_va);
 }
 
 void*
@@ -424,13 +437,7 @@ shrink(void* va, uint32 new_required_size)
 	// if remaining_block_size >= 16: split
 	// else: check if can be merged with a free block infront of it and resulting_size >= 16
 	if (remaining_block_size >= 16) {
-		// take only required size
-		set_block_data(va, new_required_size, 1);
-
-		// add remaining part to freeBlockList
-		uint32 *free_block_va = va + new_required_size;
-		set_block_data(free_block_va, remaining_block_size, 1);
-		free_block(free_block_va);
+		set_data_and_split_block(va, new_required_size, remaining_block_size);
 	} else {
 		uint32 *next_block_va = va + old_size;
 
@@ -440,12 +447,9 @@ shrink(void* va, uint32 new_required_size)
 
 			// a valid block can be made
 			if (merged_block_size >= 16) {
-				set_block_data(va, new_required_size, 1);
+				set_data_and_split_block(va, new_required_size, remaining_block_size);
 
 				uint32 *free_block_va = va + new_required_size;
-				set_block_data(free_block_va, remaining_block_size, 1);
-				free_block(free_block_va);
-
 				merge_blocks((struct BlockElement *)free_block_va, (struct BlockElement *)next_block_va);
 			}
 		}
@@ -482,13 +486,7 @@ expand(void* va, uint32 new_required_size)
 
 	// can split, and get a new freeBlock
 	if (remaining_block_size >= 16) {
-		// take only required size
-		set_block_data(va, new_required_size, 1);
-
-		// split the remaining block to be free one
-		uint32 *free_block_va = va + new_required_size;
-		set_block_data(free_block_va, remaining_block_size, 1);
-		free_block(free_block_va);
+		set_data_and_split_block(va, new_required_size, remaining_block_size);
 	} else {
 		// cannot split, leading to internal fragmentation
 		set_block_data(va, total_size, 1);
