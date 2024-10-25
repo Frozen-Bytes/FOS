@@ -27,4 +27,6 @@ int  holding_sleeplock(struct sleeplock *lk);
 void acquire_sleeplock(struct sleeplock *lk);
 void release_sleeplock(struct sleeplock *lk);
 
+void printcallstack_sleeplock(const struct sleeplock *lk);
+
 #endif /*KERN_CONC_SLEEPLOCK_H_*/
