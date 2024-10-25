@@ -43,7 +43,7 @@ void sleep(struct Channel *chan, struct spinlock *lk)
 
 	// Let the scheduler go back to scheduling ready processes
 	sched();
-	
+
 	// Release process queues lock to enable other processes to wake me
 	release_spinlock(&ProcessQueues.qlock);
 
@@ -65,15 +65,14 @@ void sleep(struct Channel *chan, struct spinlock *lk)
 void wakeup_one(struct Channel *chan)
 {
 	//TODO: [PROJECT'24.MS1 - #11] [4] LOCKS - wakeup_one
-	
+
 	// To not continue if there is a process currently going to sleep
 	acquire_spinlock(&ProcessQueues.qlock);
 
-	struct Env_Queue blocked_queue = chan->queue;
+	struct Env_Queue *blocked_queue = &chan->queue;
 
-	if (queue_size(&blocked_queue) > 0) {
-		struct Env *process_to_wakeup = dequeue(&blocked_queue);
-		process_to_wakeup->env_status = ENV_READY;
+	if (queue_size(blocked_queue) > 0) {
+		struct Env *process_to_wakeup = dequeue(blocked_queue);
 		sched_insert_ready0(process_to_wakeup);
 	}
 
@@ -91,19 +90,17 @@ void wakeup_one(struct Channel *chan)
 void wakeup_all(struct Channel *chan)
 {
 	//TODO: [PROJECT'24.MS1 - #12] [4] LOCKS - wakeup_all
-	
+
 	// To not continue if there is a process currently going to sleep
 	acquire_spinlock(&ProcessQueues.qlock);
 
-	struct Env_Queue blocked_queue = chan->queue;
+	struct Env_Queue *blocked_queue = &chan->queue;
 
-	while (queue_size(&blocked_queue) > 0) {
-		struct Env *process_to_wakeup = dequeue(&blocked_queue);
-		process_to_wakeup->env_status = ENV_READY;
+	while (queue_size(blocked_queue) > 0) {
+		struct Env *process_to_wakeup = dequeue(blocked_queue);
 		sched_insert_ready0(process_to_wakeup);
 	}
 
 	// To re-enable other processes to sleep
 	release_spinlock(&ProcessQueues.qlock);
 }
-
