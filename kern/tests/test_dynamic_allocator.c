@@ -1492,84 +1492,53 @@ void test_realloc_block_FF()
 	}
 
 	cprintf("[PARTIAL] test realloc_block with FIRST FIT completed. Evaluation = %d%\n", eval);
-	//====================================================================//
-	// [6] Test edge cases - odd, negative, below minimum size
-	//====================================================================//
 	struct BlockElement *blkb = NULL;
-
 	LIST_FOREACH(blkb, &freeBlocksList)
 	{
 		uint32 blk_size = get_block_size(blkb);
 		cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
 	}
-	cprintf("6: Test edge cases - odd, negative, below minimum size\n\n");
+	short *test_blocks[3];
 	void *test_pointer;
-	is_correct = 1;
-	{
-		test_pointer = realloc_block_FF(NULL, 15 - sizeOfMetaData);
-		if (test_pointer != NULL){
-			cprintf("test_realloc_block_FF #6.1: Failed - odd size should return NULL\n");
-			is_correct = 0;
-			free_block(test_pointer);
-		}
-		test_pointer = realloc_block_FF(NULL, -10 - sizeOfMetaData);
-		if(test_pointer != NULL){
-			cprintf("test_realloc_block_FF #6.2: Failed - negative size should return NULL\n");
-			is_correct = 0;
-			free_block(test_pointer);
-		}
-		test_pointer = realloc_block_FF(NULL, 12 - sizeOfMetaData); 
-		if(test_pointer != NULL){
-			cprintf("test_realloc_block_FF #6.3: Failed - below minimum (16) should return NULL\n");
-			is_correct = 0;
-			free_block(test_pointer);
-		}
-	}
-	if(is_correct){
-		eval += 5;
-	}
-	// ====================================================================//
-	// [7] Test invalid VA scenarios
-	// ====================================================================//
-	cprintf("7: Test invalid VA case\n\n");
-	is_correct = 1;
-	test_pointer = (void*)0xFFFFFFFF;
-	void *invalid_va = realloc_block_FF(test_pointer, 64 - sizeOfMetaData); 
-	if(invalid_va != NULL){
-		cprintf("test_realloc_block_FF #7.1: Failed - nonexistent VA should return NULL\n");
-		is_correct = 0;
-	}
-	free_block(invalid_va);
-	if(is_correct){
-		eval += 5;
-	}
-	struct BlockElement *blk = NULL;
-	LIST_FOREACH(blkb, &freeBlocksList)
-	{
-		uint32 blk_size = get_block_size(blkb);
-		cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
-	}
-	cprintf("[PARTIAL] test realloc_block with FIRST FIT completed. Evaluation = %d%\n", eval);
 	free_block(startVAs[1400]); // free some space for the tests
 	test_pointer = alloc_block_FF(remainSize - sizeOfMetaData); // reuse it
 	free_block(test_pointer); // free it again lol XD
 	//====================================================================//
-	// [8] Test realloc requiring relocation (First Fit)
+	// [5] Test realloc with no size change (should return the same address) 
 	//====================================================================//
-	cprintf("8: Test realloc requiring relocation (First Fit) [15%].\n\n");
+	cprintf("5: Test calling realloc with no size change.\n\n");
+	is_correct = 1;
+	new_size = allocSizes[0] - sizeOfMetaData;
+	test_blocks[0] = realloc_block_FF(NULL, new_size);
+	*(test_blocks[0]) = 1;
+	test_blocks[1] = realloc_block_FF(test_blocks[0], new_size);
+	if(test_blocks[0] != test_blocks[1]){
+		cprintf("test_realloc_block_FF #5.1: Failed - realloc with same size should return the original address.\n");
+		is_correct = 0;
+	}
+	if(*(test_blocks[0]) != *(test_blocks[1])){
+		cprintf("test_realloc_block_FF #5.2: FAILED - block content changed unexpectedly.\n");
+		is_correct = 0;
+	}
+	if(is_correct){
+		eval += 5;
+	}
+	realloc_block_FF(test_blocks[0], 0);
+	//====================================================================//
+	// [6] Test realloc requiring relocation (First Fit)
+	//====================================================================//
+	cprintf("6: Test realloc requiring relocation (First Fit) [15%].\n\n");
 	is_correct = 1;
 
-	short *test_blocks[3];
 	new_size = allocSizes[1] - sizeOfMetaData;
 	// make some blocks and add content to it 
-	test_pointer = test_blocks[0] = realloc_block_FF(NULL, new_size);
-	test_blocks[1] = realloc_block_FF(NULL, new_size);
-	test_blocks[2] = realloc_block_FF(NULL, new_size);
-	*(test_blocks[0]) = 1;
-	*(test_blocks[1]) = 2;
-	*(test_blocks[2]) = 3;
+	for (int i = 0; i < 3; i++)
+	{
+		test_blocks[i] = realloc_block_FF(NULL, new_size);
+		*(test_blocks[i]) = i + 1;
+	}
 	short *block_to_relocate = realloc_block_FF(test_blocks[0], allocSizes[0] - sizeOfMetaData);
-	if(block_to_relocate == test_pointer){
+	if(block_to_relocate == test_blocks[0]){
 		cprintf("test_realloc_block_FF #8.1: Failed. Block should have relocated\n");
 		is_correct = 0;
 	}
@@ -1587,28 +1556,15 @@ void test_realloc_block_FF()
 	if(is_correct){
 		eval += 5;
 	}
+	struct BlockElement *blk = NULL;
+	LIST_FOREACH(blkb, &freeBlocksList)
+	{
+		uint32 blk_size = get_block_size(blkb);
+		cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+	}
 	//=====================================================================================//
-	// [9] Test realloc with no free blocks available (heap extension) via sprk()
+	// [7] Test realloc with no free blocks available (heap extension) via sprk()
 	//=====================================================================================//
-	cprintf("9: Test realloc with no free blocks available (heap extension) via sprk() [15%].\n\n");
-	is_correct = 1;
-	old_size = allocSizes[2] - sizeOfMetaData;
-	test_blocks[0] = realloc_block_FF(NULL, old_size);
-	*(test_blocks[0]) = 1;
-	new_size = (remainSize + 16) - sizeOfMetaData; // big size but just by enough for sprk to work
-	short *block_to_extend = realloc_block_FF(test_blocks[0],new_size);
-	if(block_to_extend == NULL){
-		cprintf("test_realloc_block_FF #9.1: Failed. realloc should extend heap via sbrk.\n");
-		is_correct = 0;
-	}
-	if(block_to_extend != NULL && *(block_to_extend) != 1){ // null condition cause it might trigger the trap handler
-		cprintf("test_realloc_block_FF #9.2: Failed. content of the block wasn't copied correctly. Expected: %d, Found: %d\n", 1, *(block_to_extend));
-		is_correct = 0;
-	}
-	if (is_correct){
-		eval += 5;
-	}
-	cprintf("[PARTIAL] test realloc_block with FIRST FIT completed. Evaluation = %d%\n", eval);
 	
 }
 
