@@ -1492,12 +1492,12 @@ void test_realloc_block_FF()
 	}
 
 	cprintf("[PARTIAL] test realloc_block with FIRST FIT completed. Evaluation = %d%\n", eval);
-	struct BlockElement *blkb = NULL;
-	LIST_FOREACH(blkb, &freeBlocksList)
-	{
-		uint32 blk_size = get_block_size(blkb);
-		cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
-	}
+	// struct BlockElement *blkb = NULL;
+	// LIST_FOREACH(blkb, &freeBlocksList)
+	// {
+	// 	uint32 blk_size = get_block_size(blkb);
+	// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+	// }
 	short *test_blocks[3];
 	void *test_pointer;
 	free_block(startVAs[1400]); // free some space for the tests
@@ -1527,7 +1527,7 @@ void test_realloc_block_FF()
 	//====================================================================//
 	// [6] Test realloc requiring relocation (First Fit)
 	//====================================================================//
-	cprintf("6: Test realloc requiring relocation (First Fit) [15%].\n\n");
+	cprintf("6: Test realloc requiring relocation (First Fit).\n\n");
 	is_correct = 1;
 
 	new_size = allocSizes[1] - sizeOfMetaData;
@@ -1538,15 +1538,18 @@ void test_realloc_block_FF()
 		*(test_blocks[i]) = i + 1;
 	}
 	short *block_to_relocate = realloc_block_FF(test_blocks[0], allocSizes[0] - sizeOfMetaData);
-	if(block_to_relocate == test_blocks[0]){
+	if(block_to_relocate == test_blocks[0])
+	{
 		cprintf("test_realloc_block_FF #8.1: Failed. Block should have relocated\n");
 		is_correct = 0;
 	}
-	if(*(block_to_relocate) != 1){
+	if(*(block_to_relocate) != 1)
+	{
 		cprintf("test_realloc_block_FF #8.2: Failed. content of the block wasn't copied correctly. Expected: %d, Found: %d\n", 1, *(block_to_relocate));
 		is_correct = 0;
 	}
-	if(is_free_block(test_blocks[0]) == 0){
+	if(is_free_block(test_blocks[0]) == 0)
+	{
 		cprintf("test_realloc_block_FF #8.3: Failed. the previous space of the block before relocating wasn't freed\n", 1, *(block_to_relocate));
 		is_correct = 0;
 	}
@@ -1556,16 +1559,45 @@ void test_realloc_block_FF()
 	if(is_correct){
 		eval += 5;
 	}
-	struct BlockElement *blk = NULL;
-	LIST_FOREACH(blkb, &freeBlocksList)
+
+	//=====================================================================================//
+	// [7] Test realloc: Merging Remaining Space with Adjacent Free Block
+	//=====================================================================================//
+	cprintf("7: Test realloc Merging Remaining Space with Adjacent Free Block.\n\n");
+	is_correct = 1;
+	uint32 reamin = 2;
+	short *merged_free_block;
+	new_size = allocSizes[2] - sizeOfMetaData;
+	for (int i = 0; i < 3; i++)
 	{
-		uint32 blk_size = get_block_size(blkb);
-		cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+		test_blocks[i] = realloc_block_FF(NULL, new_size);
+		*(test_blocks[i]) = i + 1;
 	}
-	//=====================================================================================//
-	// [7] Test realloc with no free blocks available (heap extension) via sprk()
-	//=====================================================================================//
-	
+	realloc_block_FF(test_blocks[1], 0);
+	realloc_block_FF(test_blocks[0], new_size - reamin);
+	merged_free_block = (short*)((uint8*)test_blocks[1] - reamin);
+	if(get_block_size(merged_free_block) != (new_size + sizeOfMetaData + reamin))
+	{
+		cprintf("test_realloc_block_FF #7.1: Failed. Block should have increased in size\n");
+		is_correct = 0;
+	}
+	if(get_block_size(test_blocks[0]) != (new_size + sizeOfMetaData - reamin))
+	{
+		cprintf("test_realloc_block_FF #7.2: Failed. Block should have decreased in size.\n");
+		is_correct = 0;
+	}
+	if(*(test_blocks[0]) != 1)
+	{
+		cprintf("test_realloc_block_FF #7.3: Failed. Content of the block should not have changed.\n");
+		is_correct = 0;
+	}
+	if(is_correct)
+	{
+		eval += 5;
+	}
+
+	cprintf("	YASTAA I CAN ASSURE YOU THAT Zedanov COOKED WITH THIS ONE %d%\n", eval);
+
 }
 
 

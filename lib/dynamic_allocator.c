@@ -9,8 +9,6 @@
 #include "../inc/dynamic_allocator.h"
 
 
-
-
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -396,19 +394,135 @@ free_block(void *va)
 //=========================================
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
-void *realloc_block_FF(void* va, uint32 new_size)
-{
-	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("realloc_block_FF is not implemented yet");
-	//Your Code is Here...
 
-	if (va == NULL && new_size == 0) {
+int
+is_valid_block(void* va)
+{
+	// BEG/END are special blocks, their size=0 and marked allocated
+	// so if the block doesn't have these specs, it's valid to use
+	return !(get_block_size(va) == 0 && !is_free_block(va));
+}
+
+void
+set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_block_size)
+{
+	// take only required size
+	set_block_data(va, new_required_size, 1);
+
+	// split the remaining block to be free one
+	uint32 *free_block_va = va + new_required_size;
+	set_block_data(free_block_va, remaining_block_size, 1);
+	free_block(free_block_va);
+}
+
+void*
+shrink(void* va, uint32 new_required_size)
+{
+	// avoid accessing nullptr
+	assert(va != NULL);
+
+	uint32 old_size = get_block_size(va);
+	uint32 remaining_block_size = old_size - new_required_size;
+
+	// avoid unsigned int wrapping
+	assert(old_size >= new_required_size);
+
+	// if remaining_block_size >= 16: split
+	// else: check if can be merged with a free block infront of it and resulting_size >= 16
+	if (remaining_block_size >= 16) {
+		set_data_and_split_block(va, new_required_size, remaining_block_size);
+	} else {
+		uint32 *next_block_va = va + old_size;
+
+		// if next block isn't END, and is free: can be merged
+		// else: size stays the same
+		if (is_valid_block(next_block_va) && is_free_block(next_block_va)) {
+			// a valid block can be made, as next_block_va is at least 16
+			uint32 merged_block_size = remaining_block_size + get_block_size(next_block_va);
+
+			// va only takes required size
+			set_block_data(va, new_required_size, 1);
+
+			// making the new free block
+			// this will use free_part_va, have space for a header behind it
+			// even it entered the next_block_va area
+			uint32 *free_part_va = va + new_required_size;
+
+			// this will use the header of the free part right after the shrinked block
+			// the footer of the next free block, resulting in a new merged bigger free block
+			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
+			set_block_data(free_part_va, merged_block_size, 1);
+			free_block(free_part_va);
+		}
+	}
+	return va;
+}
+
+void*
+expand(void* va, uint32 new_required_size)
+{
+	// avoid accessing nullptr
+	assert(va != NULL);
+
+	uint32 old_size = get_block_size(va);
+	uint32 *next_block_va = va + old_size;
+
+	// if the next block is the end, cannot expand
+	if (!is_valid_block(next_block_va)) {
 		return NULL;
 	}
 
+	uint32 next_block_size = get_block_size(next_block_va);
+	uint32 total_size = old_size + next_block_size;
+	if (!is_free_block(next_block_va) || total_size < new_required_size) {
+		return NULL;
+	}
+
+	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
+
+	uint32 remaining_block_size = total_size - new_required_size;
+
+	// can split, and get a new freeBlock
+	if (remaining_block_size >= 16) {
+		set_data_and_split_block(va, new_required_size, remaining_block_size);
+	} else {
+		// cannot split, leading to internal fragmentation
+		set_block_data(va, total_size, 1);
+	}
+
+	return va;
+}
+
+void
+move_block_data(void* old_va, void* new_va, int old_total_size)
+{
+	// to ignore size of the metadata
+	old_total_size -= 8;
+
+	// given size is in bytes
+	int size = old_total_size / sizeof(int32);
+	for (int i = 0 ; i < size ; i++)
+	{
+		int32 *cur = (int32*)old_va + i;
+		int32 *new = (int32*)new_va + i;
+		*new = *cur;
+	}
+}
+
+void*
+realloc_block_FF(void* va, uint32 new_size)
+{
+	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
+	//COMMENT THE FOLLOWING LINE BEFORE START CODING
+	//Your Code is Here...
+
+	// handle nulls cases:
 	if (va == NULL) {
-		return alloc_block_FF(new_size);
+		if (new_size == 0) {
+			return NULL;
+		} else {
+			return alloc_block_FF(new_size);
+		}
 	}
 
 	if (new_size == 0) {
@@ -416,62 +530,48 @@ void *realloc_block_FF(void* va, uint32 new_size)
 		return NULL;
 	}
 
+	{
+		if (new_size % 2 != 0) {
+			// ensure that the size is even (to use LSB as allocation flag)
+			new_size++;
+		}
+		if (new_size < DYN_ALLOC_MIN_BLOCK_SIZE) {
+			new_size = DYN_ALLOC_MIN_BLOCK_SIZE;
+		}
+	}
+
 	uint32 old_size = get_block_size(va);
 	uint32 new_required_size = new_size + 2 * sizeof(uint32);
+
+	if (is_free_block(va)) {
+		LIST_REMOVE(&freeBlocksList, (struct BlockElement*)va);
+		set_block_data(va, old_size, 1);
+	}
 
 	if (new_required_size == old_size) {
 		return va;
 	}
 
-	// reallocation always happens in place
 	if (new_required_size < old_size) {
-		uint32 remaining_block_size = old_size - new_required_size;
+		return shrink(va, new_required_size);
+	} else {
+		void *new_va = expand(va, new_required_size);
+		
+		// expand happened
+		if (new_va == va) {
+			return new_va;
+		// expand failed. try relocating
+		} else {
+			void *new_allocated_va = alloc_block_FF(new_size);
+			if (new_allocated_va == NULL) {
+				return NULL;
+			}
 
-		// if the remaining_block_size < 16, leave the block with the same size 
-		// else: split
-		if (remaining_block_size >= 16) {
-			// take only required size
-			void *req = va;
-			set_block_data(req, new_required_size, 1);
-
-			// add remaining part to freeBlockList
-			uint32 *free_block_va = va + new_required_size;
-			set_block_data(free_block_va, remaining_block_size, 1);
-			free_block(free_block_va);
+			move_block_data(va, new_allocated_va, old_size);
+			free_block(va);
+			return new_allocated_va;
 		}
-
-		return va;
 	}
-
-	uint32 *next_block_va = va + old_size;
-	uint32 next_block_size = get_block_size(next_block_va);
-
-	// both blocks has header and footer, when merged only one is header/footer used
-	// so one header and one footer will get freed => + 2 * sizeof(uint32)
-	uint32 total_size = old_size + next_block_size + 2 * sizeof(uint32);
-
-	// re-locate:
-	if (!is_free_block(next_block_va) || total_size < new_required_size) {
-		free_block(va);
-		return alloc_block_FF(new_size);
-	}
-	// in-place:
-
-	LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
-
-	set_block_data(va, new_required_size, 1);
-
-	uint32 remaining_block_size = total_size - new_required_size;
-
-	// can split
-	if (remaining_block_size >= 16) {
-		// add remaining part to freeBlocksList
-		uint32 *free_block_va = va + new_required_size;
-		set_block_data(free_block_va, remaining_block_size, 1);
-		free_block(free_block_va);
-	}
-
-	return va;
 }
 
 /*********************************************************************************************/
