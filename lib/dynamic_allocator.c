@@ -456,7 +456,7 @@ shrink(void* va, uint32 new_required_size)
 			 */
 
 			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
-			set_block_data(free_part_va, merged_block_size);
+			set_block_data(free_part_va, merged_block_size, 1);
 			insert_sorted_into_free_list((struct BlockElement*)free_part_va);
 		}
 	}
@@ -551,8 +551,13 @@ realloc_block_FF(void* va, uint32 new_size)
 			return new_va;
 		// re-location happnes
 		} else {
+			// need to move the data from va => new_allocted_va
 			free_block(va);
-			return alloc_block_FF(new_size);
+			void *new_allocted_va = alloc_block_FF(new_size);
+			if (new_allocted_va == NULL) {
+				return NULL;
+			}
+			return new_allocted_va;
 		}
 	}
 }
