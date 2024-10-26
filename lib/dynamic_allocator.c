@@ -392,7 +392,7 @@ is_valid_block(void* va)
 {
 	// BEG/END are special blocks, their size=0 and marked allocated
 	// so if the block doesn't have these specs, it's valid to use
-	return !(get_block_size(va) == 0 && is_free_block(va));
+	return !(get_block_size(va) == 0 && !is_free_block(va));
 }
 
 void
@@ -433,9 +433,6 @@ shrink(void* va, uint32 new_required_size)
 			// a valid block can be made
 			if (merged_block_size >= 16) {
 				set_data_and_split_block(va, new_required_size, remaining_block_size);
-
-				uint32 *free_block_va = va + new_required_size;
-				merge_blocks((struct BlockElement *)free_block_va, (struct BlockElement *)next_block_va);
 			}
 		}
 	}
@@ -448,13 +445,10 @@ expand(void* va, uint32 new_required_size)
 	// avoid accessing nullptr
 	assert(va != NULL);
 
-	// no free blocks in front of va
-	if (LIST_LAST(&freeBlocksList) <= (struct BlockElement *)va) {
-		return NULL;
-	}
-
 	uint32 old_size = get_block_size(va);
 	uint32 *next_block_va = va + old_size;
+
+	// if the next block is the end, cannot expand
 	if (!is_valid_block(next_block_va)) {
 		return NULL;
 	}
