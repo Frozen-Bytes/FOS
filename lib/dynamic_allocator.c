@@ -436,10 +436,12 @@ shrink(void* va, uint32 new_required_size)
 			set_block_data(va, new_required_size, 1);
 
 			// making the new free block
-			// this will use make free_part_va, have space for a header behind it
+			// this will use free_part_va, have space for a header behind it
 			// even it entered the next_block_va area
 			uint32 *free_part_va = va + new_required_size;
 
+			// this will use the header of the free part right after the shrinked block
+			// the footer of the next free block, resulting in a new merged bigger free block
 			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
 			set_block_data(free_part_va, merged_block_size, 1);
 			free_block(free_part_va);
@@ -552,14 +554,13 @@ realloc_block_FF(void* va, uint32 new_size)
 			return new_va;
 		// expand failed. try relocating
 		} else {
-			free_block(va);
 			void *new_allocated_va = alloc_block_FF(new_size);
 			if (new_allocated_va == NULL) {
 				return NULL;
 			}
 
-			// need to move the data from va => new_allocated_va
 			move_block_data(va, new_allocated_va, old_size);
+			free_block(va);
 			return new_allocated_va;
 		}
 	}
