@@ -116,7 +116,7 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 //==================================
 // [2] SET BLOCK HEADER & FOOTER:
 //==================================
-void 	set_block_data(void* va, uint32 totalSize, bool isAllocated)
+void set_block_data(void* va, uint32 totalSize, bool isAllocated)
 {
 	//TODO: [PROJECT'24.MS1 - #05] [3] DYNAMIC ALLOCATOR - set_block_data
 	uint32 *header = (uint32*) va - 1;
@@ -426,14 +426,38 @@ shrink(void* va, uint32 new_required_size)
 	} else {
 		uint32 *next_block_va = va + old_size;
 
-		// next block isn't END, and is free and can be merged
+		// if next block isn't END, and is free: can be merged
+		// else: size stays the same
 		if (is_valid_block(next_block_va) && is_free_block(next_block_va)) {
+			// a valid block can be made, as next_block_va is at least 16
 			uint32 merged_block_size = remaining_block_size + get_block_size(next_block_va);
 
-			// a valid block can be made
-			if (merged_block_size >= 16) {
-				set_data_and_split_block(va, new_required_size, remaining_block_size);
-			}
+			// va only takes required size
+			set_block_data(va, new_required_size, 1);
+
+			// making the new free block
+			uint32 *free_part_va = va + new_required_size;
+
+			/**
+			 * this will use the header of the free part right after the va
+			 * and the footer of the next block, resulting in new merged block
+			 * 
+			 * BLOCKs:
+			 * 1- [va_header | va | new_va_footer]
+			 * 2- [free_block_header | free_block_va | old_va_footer]
+			 * 3- [next_block_header | next_block | next_block footer]
+			 * 
+			 * 2nd and 3rd will be merged resulting in one block of size = merged_size, ignoring:
+			 * - old_va_footer
+			 * - next_block_header
+			 * 
+			 * Resulting block:
+			 * [free_block_header | free_block_va | ...... | next_block]
+			 */
+
+			LIST_REMOVE(&freeBlocksList, (struct BlockElement*)next_block_va);
+			set_block_data(free_part_va, merged_block_size);
+			insert_sorted_into_free_list((struct BlockElement*)free_part_va);
 		}
 	}
 	return va;
@@ -496,9 +520,13 @@ realloc_block_FF(void* va, uint32 new_size)
 	}
 
 	{
-		if (new_size % 2 != 0) new_size++;	//ensure that the size is even (to use LSB as allocation flag)
-		if (new_size < DYN_ALLOC_MIN_BLOCK_SIZE)
+		if (new_size % 2 != 0) {
+			// ensure that the size is even (to use LSB as allocation flag)
+			new_size++;
+		}
+		if (new_size < DYN_ALLOC_MIN_BLOCK_SIZE) {
 			new_size = DYN_ALLOC_MIN_BLOCK_SIZE;
+		}
 	}
 
 	uint32 old_size = get_block_size(va);
