@@ -499,6 +499,18 @@ expand(void* va, uint32 new_required_size)
 	return va;
 }
 
+void move_block_data(void* old_va, void* new_va, int size)
+{
+	// to ignore size of the metadata
+	size -= 2;
+	for (int i = 0 ; i < size ; i++)
+	{
+		uint32 *cur = (uint32*)old_va + i;
+		uint32 *new = (uint32*)new_va + i;
+		*new = *cur;
+	}
+}
+
 void*
 realloc_block_FF(void* va, uint32 new_size)
 {
@@ -558,6 +570,8 @@ realloc_block_FF(void* va, uint32 new_size)
 			if (new_allocted_va == NULL) {
 				return NULL;
 			}
+
+			move_block_data(va, new_allocted_va, old_size);
 			return new_allocted_va;
 		}
 	}
