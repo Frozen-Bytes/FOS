@@ -119,6 +119,18 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 void set_block_data(void* va, uint32 totalSize, bool isAllocated)
 {
 	//TODO: [PROJECT'24.MS1 - #05] [3] DYNAMIC ALLOCATOR - set_block_data
+	
+	if (totalSize % 2 != 0) totalSize++;	//ensure that the size is even (to use LSB as allocation flag)
+	if (totalSize < 16)
+		panic("Block size must be at least 16 bits.\n");
+	if (!is_initialized)
+	{
+		uint32 required_size = totalSize + 2*sizeof(int) /*header & footer*/ + 2*sizeof(int) /*da begin & end*/ ;
+		uint32 da_start = (uint32)sbrk(ROUNDUP(required_size, PAGE_SIZE)/PAGE_SIZE);
+		uint32 da_break = (uint32)sbrk(0);
+		initialize_dynamic_allocator(da_start, da_break - da_start);
+	}
+
 	uint32 *header = (uint32*) va - 1;
 	uint32 *footer = (uint32*)((uint8*)header + totalSize - sizeof(uint32));
 	*header = (totalSize | isAllocated);
@@ -195,8 +207,6 @@ handle_allocation(void *required_blk, uint32 required_size) {
 void*
 alloc_block_FF(uint32 size)
 {
-	if (size == 0)
-	   return NULL;
 	//==================================================================================
 	//DON'T CHANGE THESE LINES==========================================================
 	//==================================================================================
@@ -217,7 +227,6 @@ alloc_block_FF(uint32 size)
 
 	//TODO: [PROJECT'24.MS1 - #06] [3] DYNAMIC ALLOCATOR - alloc_block_FF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("alloc_block_FF is not implemented yet");
 	//panic("alloc_block_FF is not implemented yet");
 	//Your Code is Here...
 	if (size == 0)
@@ -243,15 +252,11 @@ alloc_block_FF(uint32 size)
 //=========================================
 // [4] ALLOCATE BLOCK BY BEST FIT:
 //=========================================
-
 void*
 alloc_block_BF(uint32 size)
 {
-	if (size == 0)
-	  return NULL;
 	//TODO: [PROJECT'24.MS1 - BONUS] [3] DYNAMIC ALLOCATOR - alloc_block_BF
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("alloc_block_BF is not implemented yet");
 	//panic("alloc_block_BF is not implemented yet");
 	//Your Code is Here...
     //==================================================================================
