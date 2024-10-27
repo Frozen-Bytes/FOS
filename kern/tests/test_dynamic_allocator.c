@@ -1304,7 +1304,6 @@ void test_realloc_block_FF()
 	{
 		eval += 10;
 	}
-
 	//====================================================================//
 	//[2] Test krealloc by passing size = 0. It should call free
 	//====================================================================//
@@ -1352,9 +1351,9 @@ void test_realloc_block_FF()
 	{
 		eval += 10;
 	}
-
+		
 	//====================================================================//
-	//[3] Test realloc with increased sizes
+	//[3] Test realloc with increased sizes (in the same place) merge or search
 	//====================================================================//
 	cprintf("3: Test calling realloc with increased sizes [50%].\n\n") ;
 	int blockIndex, block_size, block_status, old_size, new_size, newBlockIndex;
@@ -1366,9 +1365,7 @@ void test_realloc_block_FF()
 		new_size = allocSizes[3] /*12+16 B*/ + allocSizes[4]/2 /*2KB/2*/ - sizeOfMetaData;
 		expectedSize = ROUNDUP(new_size + sizeOfMetaData, 2);
 		expectedVA = startVAs[blockIndex];
-
 		va = realloc_block_FF(startVAs[blockIndex], new_size);
-
 		//check return address
 		if (check_block(va, expectedVA, expectedSize, 1) == 0)
 		{
@@ -1396,9 +1393,7 @@ void test_realloc_block_FF()
 		new_size = allocSizes[3] + allocSizes[4] - sizeOfMetaData;
 		expectedSize = ROUNDUP(new_size + sizeOfMetaData, 2);
 		expectedVA = startVAs[blockIndex];
-
 		va = realloc_block_FF(startVAs[blockIndex], new_size);
-
 		expectedNumOfFreeBlks--;
 
 		if (check_block(va, expectedVA, expectedSize, 1) == 0)
@@ -1421,7 +1416,7 @@ void test_realloc_block_FF()
 	}
 
 	//====================================================================//
-	//[4] Test realloc with decreased sizes
+	//[4] Test realloc with decreased sizes (split)
 	//====================================================================//
 	cprintf("4: Test calling realloc with decreased sizes.[30%]\n\n") ;
 	//[4.1] next block is full (NO coalesce)
@@ -1433,9 +1428,7 @@ void test_realloc_block_FF()
 		new_size = old_size - 1*kilo ;
 		expectedSize = ROUNDUP(new_size + sizeOfMetaData, 2);
 		expectedVA = startVAs[blockIndex];
-
 		va = realloc_block_FF(startVAs[blockIndex], new_size);
-
 		expectedNumOfFreeBlks++;
 
 		if (check_block(va, expectedVA, expectedSize, 1) == 0)
@@ -1476,9 +1469,7 @@ void test_realloc_block_FF()
 		new_size = old_size - 6;
 		expectedSize = allocSizes[1]; /*Same block size [Internal Framgmentation]*/
 		expectedVA = startVAs[blockIndex];
-
 		va = realloc_block_FF(startVAs[blockIndex], new_size);
-
 		if (check_block(va, expectedVA, expectedSize, 1) == 0)
 		{
 			is_correct = 0;
@@ -1501,6 +1492,111 @@ void test_realloc_block_FF()
 	}
 
 	cprintf("[PARTIAL] test realloc_block with FIRST FIT completed. Evaluation = %d%\n", eval);
+	// struct BlockElement *blkb = NULL;
+	// LIST_FOREACH(blkb, &freeBlocksList)
+	// {
+	// 	uint32 blk_size = get_block_size(blkb);
+	// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+	// }
+	short *test_blocks[3];
+	void *test_pointer;
+	free_block(startVAs[1400]); // free some space for the tests
+	test_pointer = alloc_block_FF(remainSize - sizeOfMetaData); // reuse it
+	free_block(test_pointer); // free it again lol XD
+	//====================================================================//
+	// [5] Test realloc with no size change (should return the same address) 
+	//====================================================================//
+	cprintf("5: Test calling realloc with no size change.\n\n");
+	is_correct = 1;
+	new_size = allocSizes[0] - sizeOfMetaData;
+	test_blocks[0] = realloc_block_FF(NULL, new_size);
+	*(test_blocks[0]) = 1;
+	test_blocks[1] = realloc_block_FF(test_blocks[0], new_size);
+	if(test_blocks[0] != test_blocks[1]){
+		cprintf("test_realloc_block_FF #5.1: Failed - realloc with same size should return the original address.\n");
+		is_correct = 0;
+	}
+	if(*(test_blocks[0]) != *(test_blocks[1])){
+		cprintf("test_realloc_block_FF #5.2: FAILED - block content changed unexpectedly.\n");
+		is_correct = 0;
+	}
+	if(is_correct){
+		eval += 5;
+	}
+	realloc_block_FF(test_blocks[0], 0);
+	//====================================================================//
+	// [6] Test realloc requiring relocation (First Fit)
+	//====================================================================//
+	cprintf("6: Test realloc requiring relocation (First Fit).\n\n");
+	is_correct = 1;
+
+	new_size = allocSizes[1] - sizeOfMetaData;
+	// make some blocks and add content to it 
+	for (int i = 0; i < 3; i++)
+	{
+		test_blocks[i] = realloc_block_FF(NULL, new_size);
+		*(test_blocks[i]) = i + 1;
+	}
+	short *block_to_relocate = realloc_block_FF(test_blocks[0], allocSizes[0] - sizeOfMetaData);
+	if(block_to_relocate == test_blocks[0])
+	{
+		cprintf("test_realloc_block_FF #8.1: Failed. Block should have relocated\n");
+		is_correct = 0;
+	}
+	if(*(block_to_relocate) != 1)
+	{
+		cprintf("test_realloc_block_FF #8.2: Failed. content of the block wasn't copied correctly. Expected: %d, Found: %d\n", 1, *(block_to_relocate));
+		is_correct = 0;
+	}
+	if(is_free_block(test_blocks[0]) == 0)
+	{
+		cprintf("test_realloc_block_FF #8.3: Failed. the previous space of the block before relocating wasn't freed\n", 1, *(block_to_relocate));
+		is_correct = 0;
+	}
+	realloc_block_FF(test_blocks[1], 0);
+	realloc_block_FF(test_blocks[2], 0);
+	realloc_block_FF(block_to_relocate, 0);
+	if(is_correct){
+		eval += 5;
+	}
+
+	//=====================================================================================//
+	// [7] Test realloc: Merging Remaining Space with Adjacent Free Block
+	//=====================================================================================//
+	cprintf("7: Test realloc Merging Remaining Space with Adjacent Free Block.\n\n");
+	is_correct = 1;
+	uint32 reamin = 2;
+	short *merged_free_block;
+	new_size = allocSizes[2] - sizeOfMetaData;
+	for (int i = 0; i < 3; i++)
+	{
+		test_blocks[i] = realloc_block_FF(NULL, new_size);
+		*(test_blocks[i]) = i + 1;
+	}
+	realloc_block_FF(test_blocks[1], 0);
+	realloc_block_FF(test_blocks[0], new_size - reamin);
+	merged_free_block = (short*)((uint8*)test_blocks[1] - reamin);
+	if(get_block_size(merged_free_block) != (new_size + sizeOfMetaData + reamin))
+	{
+		cprintf("test_realloc_block_FF #7.1: Failed. Block should have increased in size\n");
+		is_correct = 0;
+	}
+	if(get_block_size(test_blocks[0]) != (new_size + sizeOfMetaData - reamin))
+	{
+		cprintf("test_realloc_block_FF #7.2: Failed. Block should have decreased in size.\n");
+		is_correct = 0;
+	}
+	if(*(test_blocks[0]) != 1)
+	{
+		cprintf("test_realloc_block_FF #7.3: Failed. Content of the block should not have changed.\n");
+		is_correct = 0;
+	}
+	if(is_correct)
+	{
+		eval += 5;
+	}
+
+	cprintf("	YASTAA I CAN ASSURE YOU THAT Zedanov COOKED WITH THIS ONE %d%\n", eval);
 
 }
 
