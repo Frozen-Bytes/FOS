@@ -22,7 +22,7 @@ void* malloc(uint32 size)
 	//DON'T CHANGE THIS CODE========================================
 	if (size == 0) return NULL ;
 	//==============================================================
-	//[PROJECT'24.MS2] [2] USER HEAP - malloc() [User Side]
+	//TODO: [PROJECT'24.MS2 - #12] [3] USER HEAP [USER SIDE] - malloc()
 	// Write your code here, remove the panic and write your code
 	panic("malloc() is not implemented yet...!!");
 	return NULL;
@@ -36,7 +36,7 @@ void* malloc(uint32 size)
 //=================================
 void free(void* virtual_address)
 {
-	//[PROJECT'24.MS2] [2] USER HEAP - free() [User Side]
+	//TODO: [PROJECT'24.MS2 - #14] [3] USER HEAP [USER SIDE] - free()
 	// Write your code here, remove the panic and write your code
 	panic("free() is not implemented yet...!!");
 }
@@ -51,7 +51,7 @@ void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable)
 	//DON'T CHANGE THIS CODE========================================
 	if (size == 0) return NULL ;
 	//==============================================================
-	//[PROJECT'24.MS2] [2] USER HEAP - smalloc() [User Side]
+	//TODO: [PROJECT'24.MS2 - #18] [4] SHARED MEMORY [USER SIDE] - smalloc()
 	// Write your code here, remove the panic and write your code
 	panic("smalloc() is not implemented yet...!!");
 	return NULL;
@@ -62,7 +62,7 @@ void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable)
 //========================================
 void* sget(int32 ownerEnvID, char *sharedVarName)
 {
-	//[PROJECT'24.MS2] [2] USER HEAP - sget() [User Side]
+	//TODO: [PROJECT'24.MS2 - #20] [4] SHARED MEMORY [USER SIDE] - sget()
 	// Write your code here, remove the panic and write your code
 	panic("sget() is not implemented yet...!!");
 	return NULL;
@@ -86,7 +86,7 @@ void* sget(int32 ownerEnvID, char *sharedVarName)
 
 void sfree(void* virtual_address)
 {
-	//[PROJECT'24.MS2 BONUS] [2] USER HEAP - sfree() [User Side]
+	//TODO: [PROJECT'24.MS2 - BONUS#4] [4] SHARED MEMORY [USER SIDE] - sfree()
 	// Write your code here, remove the panic and write your code
 	panic("sfree() is not implemented yet...!!");
 }

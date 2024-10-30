@@ -1,6 +1,3 @@
-/* *********************************************************** */
-/* MAKE SURE PAGE_WS_MAX_SIZE = 1000 */
-/* *********************************************************** */
 #include <inc/lib.h>
 
 
@@ -86,6 +83,9 @@ void _main(void)
 	}
 
 	inctst(); //to ensure that it reached here
+
+	//wait until receiving a signal from the master
+	while (gettst() != 3) ;
 
 	//Test accessing a freed area (processes should be killed by the validation of the fault handler)
 	{

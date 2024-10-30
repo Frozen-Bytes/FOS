@@ -416,6 +416,19 @@ int tst_kheap(int number_of_arguments, char **arguments)
 		}
 		return 0;
 	}
+	// Test Fast Implementation of kmalloc/kfree FF
+	else if(strcmp(arguments[2], "fast") == 0)
+	{
+		if(isKHeapPlacementStrategyFIRSTFIT())
+		{
+			test_fastfirstfit();
+		}
+		else
+		{
+			panic("Fast implementation test is not yet handled for other strategies");
+		}
+		return 0;
+	}
 	// Test 2-kfree: tst kheap FF kfree
 	else if(strcmp(arguments[2], "kfree") == 0)
 	{

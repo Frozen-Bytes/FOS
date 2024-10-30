@@ -136,14 +136,13 @@ void* sys_sbrk(int numOfPages)
 	 * 		You might have to undo any operations you have done so far in this case.
 	 */
 
-	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
-
+	//TODO: [PROJECT'24.MS2 - #11] [3] USER HEAP - sys_sbrk
 	/*====================================*/
 	/*Remove this line before start coding*/
 	return (void*)-1 ;
 	/*====================================*/
+	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
 
-	//[PROJECT'24.MS2] Implement this function
 
 }
 
@@ -154,11 +153,11 @@ void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
 	/*====================================*/
 	/*Remove this line before start coding*/
-	inctst();
-	return;
+//	inctst();
+//	return;
 	/*====================================*/
 
-	//[PROJECT'24.MS2] [USER HEAP - KERNEL SIDE] allocate_user_mem
+	//TODO: [PROJECT'24.MS2 - #13] [3] USER HEAP [KERNEL SIDE] - allocate_user_mem()
 	// Write your code here, remove the panic and write your code
 	panic("allocate_user_mem() is not implemented yet...!!");
 }
@@ -170,13 +169,16 @@ void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
 	/*====================================*/
 	/*Remove this line before start coding*/
-	inctst();
-	return;
+//	inctst();
+//	return;
 	/*====================================*/
 
-	//[PROJECT'24.MS2] [USER HEAP - KERNEL SIDE] free_user_mem
+	//TODO: [PROJECT'24.MS2 - #15] [3] USER HEAP [KERNEL SIDE] - free_user_mem
 	// Write your code here, remove the panic and write your code
 	panic("free_user_mem() is not implemented yet...!!");
+
+
+	//TODO: [PROJECT'24.MS2 - BONUS#3] [3] USER HEAP [KERNEL SIDE] - O(1) free_user_mem
 }
 
 //=====================================

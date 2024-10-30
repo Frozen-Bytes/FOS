@@ -16,10 +16,10 @@
 
 struct WorkingSetElement* env_page_ws_list_create_element(struct Env* e, uint32 virtual_address)
 {
-	//[PROJECT'24.MS2] Create a new WS element
+	//TODO: [PROJECT'24.MS2 - #07] [2] FAULT HANDLER I - Create a new WS element
 	//If failed to create a new one, kernel should panic()!
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("create_share is not implemented yet");
+	panic("env_page_ws_list_create_element is not implemented yet");
 	//Your Code is Here...
 
 }

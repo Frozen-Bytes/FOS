@@ -48,7 +48,7 @@ void _main(void)
 	}
 
 	is_correct = 1;
-	cprintf("STEP A: checking PLACEMENT fault handling ... \n");
+	cprintf("STEP A: checking PLACEMENT fault handling... [40%] \n");
 	{
 		if( arr[0] !=  1)  { is_correct = 0; cprintf("PLACEMENT of stack page failed\n");}
 		if( arr[PAGE_SIZE] !=  1)  { is_correct = 0; cprintf("PLACEMENT of stack page failed\n");}
@@ -74,7 +74,7 @@ void _main(void)
 	}
 	is_correct = 1;
 
-	cprintf("STEP B: checking WS entries ...\n");
+	cprintf("STEP B: checking WS entries... [30%]\n");
 	{
 		//		uint32 expectedPages[19] = {
 		//				0x200000,0x201000,0x202000,0x203000,0x204000,0x205000,0x206000,0x207000,
@@ -112,7 +112,7 @@ void _main(void)
 		eval += 30;
 	}
 	is_correct = 1;
-	cprintf("STEP C: checking working sets WHEN BECOMES FULL...\n");
+	cprintf("STEP C: checking working sets WHEN BECOMES FULL... [30%]\n");
 	{
 		/*NO NEED FOR THIS IF REPL IS "LRU"*/
 		if(myEnv->page_last_WS_element != NULL)
@@ -167,8 +167,7 @@ void _main(void)
 		eval += 30;
 	}
 	is_correct = 1;
-	//	/cprintf("Congratulations!! Test of PAGE PLACEMENT completed successfully!!\n\n\n");
-	cprintf("[AUTO_GR@DING_PARTIAL]%d\n", eval);
+	cprintf("%~\nTest of PAGE PLACEMENT completed. Eval = %d\n\n", eval);
 
 	return;
 #endif

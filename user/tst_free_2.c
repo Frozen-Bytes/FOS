@@ -3,6 +3,7 @@
 /* *********************************************************** */
 
 #include <inc/lib.h>
+#include <user/tst_utilities.h>
 
 #define Mega  (1024*1024)
 #define kilo (1024)
@@ -50,48 +51,80 @@ void _main(void)
 	bool chk;
 	int usedDiskPages = sys_pf_calculate_allocated_pages() ;
 	int freeFrames = sys_calculate_free_frames() ;
-	uint32 actualSize, block_size, expectedSize, blockIndex;
+	uint32 actualSize, block_size, blockIndex;
 	int8 block_status;
+	void* expectedVA;
+	uint32 expectedSize, curTotalSize,roundedTotalSize ;
+
+	void* curVA = (void*) USER_HEAP_START + sizeof(int) /*BEG Block*/ ;
 	//====================================================================//
 	/*INITIAL ALLOC Scenario 1: Try to allocate set of blocks with different sizes*/
 	cprintf("PREREQUISITE#1: Try to allocate set of blocks with different sizes [all should fit]\n\n") ;
 	{
 		is_correct = 1;
-		void* curVA = (void*) USER_HEAP_START ;
-		uint32 actualSize;
+		curTotalSize = sizeof(int);
 		for (int i = 0; i < numOfAllocs; ++i)
 		{
 			for (int j = 0; j < allocCntPerSize; ++j)
 			{
 				actualSize = allocSizes[i] - sizeOfMetaData;
-				va = startVAs[idx++] = malloc(actualSize);
-				//				if (j == 0)
-				//					cprintf("first va of size %x = %x\n",allocSizes[i], va);
-
+				va = startVAs[idx] = malloc(actualSize);
+				midVAs[idx] = va + actualSize/2 ;
+				endVAs[idx] = va + actualSize - sizeof(short);
 				//Check returned va
-				if(va == NULL || (va < curVA))
-				{
-					if (is_correct)
-					{
-						is_correct = 0;
-						panic("malloc() #0.%d: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", idx, curVA + sizeOfMetaData ,va);
-					}
-				}
-				curVA += allocSizes[i] ;
-
+				expectedVA = (curVA + sizeOfMetaData/2);
+				expectedSize = allocSizes[i];
+				curTotalSize += allocSizes[i] ;
 				//============================================================
 				//Check if the remaining area doesn't fit the DynAllocBlock,
-				//so update the curVA to skip this area
-				void* rounded_curVA = ROUNDUP(curVA, PAGE_SIZE);
-				int diff = (rounded_curVA - curVA) ;
-				if (diff > 0 && diff < sizeOfMetaData)
+				//so update the curVA & curTotalSize to skip this area
+				roundedTotalSize = ROUNDUP(curTotalSize, PAGE_SIZE);
+				int diff = (roundedTotalSize - curTotalSize) ;
+				if (diff > 0 && diff < (DYN_ALLOC_MIN_BLOCK_SIZE + sizeOfMetaData))
 				{
-					curVA = rounded_curVA;
+//					cprintf("%~\n FRAGMENTATION: curVA = %x diff = %d\n", curVA, diff);
+//					cprintf("%~\n Allocated block @ %x with size = %d\n", va, get_block_size(va));
+
+					curVA = ROUNDUP(curVA, PAGE_SIZE)- sizeof(int) /*next alloc will start at END Block (after sbrk)*/;
+					curTotalSize = roundedTotalSize - sizeof(int) /*exclude END Block*/;
+					expectedSize += diff - sizeof(int) /*exclude END Block*/;
+				}
+				else
+				{
+					curVA += allocSizes[i] ;
 				}
 				//============================================================
+				if (is_correct)
+				{
+					if (check_block(va, expectedVA, expectedSize, 1) == 0)
+					{
+						if (is_correct)
+						{
+							is_correct = 0;
+							panic("alloc_block_xx #PRQ.%d: WRONG ALLOC\n", idx);
+						}
+					}
+				}
+				idx++;
+
 			}
 			//if (is_correct == 0)
 			//break;
+		}
+	}
+	/* Fill the remaining space at the end of the DA*/
+	roundedTotalSize = ROUNDUP(curTotalSize, PAGE_SIZE);
+	uint32 remainSize = (roundedTotalSize - curTotalSize) - sizeof(int) /*END block*/;
+	if (remainSize >= (DYN_ALLOC_MIN_BLOCK_SIZE + sizeOfMetaData))
+	{
+		cprintf("Filling the remaining size of %d\n\n", remainSize);
+		va = startVAs[idx] = alloc_block(remainSize - sizeOfMetaData, DA_FF);
+		//Check returned va
+		expectedVA = curVA + sizeOfMetaData/2;
+		if (check_block(va, expectedVA, remainSize, 1) == 0)
+		{
+			is_correct = 0;
+			panic("alloc_block_xx #PRQ.oo: WRONG ALLOC\n", idx);
 		}
 	}
 
@@ -105,46 +138,39 @@ void _main(void)
 		for (int i = 0; i < numOfAllocs; ++i)
 		{
 			free(startVAs[i*allocCntPerSize]);
+			if (check_block(startVAs[i*allocCntPerSize], startVAs[i*allocCntPerSize], allocSizes[i], 0) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #1.1: WRONG FREE!\n");
+			}
 		}
 
 		//Free block before last
-		free(startVAs[numOfAllocs*allocCntPerSize - 2]);
-		block_size = get_block_size(startVAs[numOfAllocs*allocCntPerSize - 2]) ;
-		if (block_size != allocSizes[numOfAllocs-1])
+		free(startVAs[numOfAllocs*allocCntPerSize - 1]);
+
+		if (check_block(startVAs[numOfAllocs*allocCntPerSize - 1], startVAs[numOfAllocs*allocCntPerSize - 1], allocSizes[numOfAllocs-1], 0) == 0)
 		{
 			is_correct = 0;
-			cprintf("test_free_2 #1.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",allocSizes[numOfAllocs-1],block_size);
-		}
-		block_status = is_free_block(startVAs[numOfAllocs*allocCntPerSize-2]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #1.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
+			cprintf("test_free_2 #1.2: WRONG FREE!\n");
 		}
 
 		//Reallocate first block
 		actualSize = allocSizes[0] - sizeOfMetaData;
 		va = malloc(actualSize);
 		//Check returned va
-		if(va == NULL || (va != (void*)(USER_HEAP_START + sizeOfMetaData)))
+		expectedVA = (void*)(USER_HEAP_START + sizeof(int) + sizeOfMetaData/2);
+		if (check_block(va, expectedVA, allocSizes[0], 1) == 0)
 		{
 			is_correct = 0;
-			cprintf("test_free_2 #1.3: WRONG ALLOC - alloc_block_FF return wrong address.\n");
+			cprintf("test_free_2 #1.3: WRONG ALLOCATE AFTER FREE!\n");
 		}
 
 		//Free 2nd block
 		free(startVAs[1]);
-		block_size = get_block_size(startVAs[1]) ;
-		if (block_size != allocSizes[0])
+		if (check_block(startVAs[1],startVAs[1], allocSizes[0], 0) == 0)
 		{
 			is_correct = 0;
-			cprintf("test_free_2 #1.4: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",allocSizes[0],block_size);
-		}
-		block_status = is_free_block(startVAs[1]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #1.5: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
+			cprintf("test_free_2 #1.4: WRONG FREE!\n");
 		}
 
 		if (is_correct)
@@ -160,26 +186,13 @@ void _main(void)
 		cprintf("	2.1: at the tail\n\n") ;
 		is_correct = 1;
 		//Free last block (coalesce with previous)
-		blockIndex = numOfAllocs*allocCntPerSize-1;
+		blockIndex = numOfAllocs*allocCntPerSize;
 		free(startVAs[blockIndex]);
-		block_size = get_block_size(startVAs[blockIndex-1]) ;
-		expectedSize = 2*allocSizes[numOfAllocs-1];
-		if (block_size != expectedSize)
+		expectedSize = allocSizes[numOfAllocs-1] + remainSize;
+		if (check_block(startVAs[blockIndex-1],startVAs[blockIndex-1], expectedSize, 0) == 0)
 		{
 			is_correct = 0;
-			cprintf("test_free_2 #2.1.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n", expectedSize,block_size);
-		}
-		block_status = is_free_block(startVAs[blockIndex-1]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #2.1.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
-		}
-
-		if (get_block_size(startVAs[blockIndex]) != 0 || is_free_block(startVAs[blockIndex]) != 0)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #2.1.3: WRONG FREE! make sure to ZEROing the size & is_free values of the vanishing block.\n");
+			cprintf("test_free_2 #2.1: WRONG FREE!\n");
 		}
 
 		//====================================================================//
@@ -187,26 +200,12 @@ void _main(void)
 		cprintf("	2.2: between 2 blocks\n\n") ;
 		blockIndex = 2*allocCntPerSize+1 ;
 		free(startVAs[blockIndex]);
-		block_size = get_block_size(startVAs[blockIndex-1]) ;
 		expectedSize = allocSizes[2]+allocSizes[2];
-		if (block_size != expectedSize)
+		if (check_block(startVAs[blockIndex-1],startVAs[blockIndex-1], expectedSize, 0) == 0)
 		{
 			is_correct = 0;
-			cprintf	("test_free_2 #2.2.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",expectedSize,block_size);
+			cprintf("test_free_2 #2.2: WRONG FREE!\n");
 		}
-		block_status = is_free_block(startVAs[blockIndex-1]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #2.2.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
-		}
-
-		if (get_block_size(startVAs[blockIndex]) != 0 || is_free_block(startVAs[blockIndex]) != 0)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #2.2.3: WRONG FREE! make sure to ZEROing the size & is_free values of the vanishing block.\n");
-		}
-
 		if (is_correct)
 		{
 			eval += 10;
@@ -222,23 +221,11 @@ void _main(void)
 		is_correct = 1;
 		blockIndex = 0 ;
 		free(startVAs[blockIndex]);
-		block_size = get_block_size(startVAs[blockIndex]) ;
 		expectedSize = allocSizes[0]+allocSizes[0];
-		if (block_size != expectedSize)
+		if (check_block(startVAs[blockIndex],startVAs[blockIndex], expectedSize, 0) == 0)
 		{
 			is_correct = 0;
-			cprintf	("test_free_2 #3.1.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",expectedSize,block_size);
-		}
-		block_status = is_free_block(startVAs[blockIndex]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #3.1.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
-		}
-		if (get_block_size(startVAs[blockIndex+1]) != 0 || is_free_block(startVAs[blockIndex+1]) != 0)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #3.1.3: WRONG FREE! make sure to ZEROing the size & is_free values of the vanishing block.\n");
+			cprintf("test_free_2 #3.1: WRONG FREE!\n");
 		}
 
 		//====================================================================//
@@ -248,22 +235,12 @@ void _main(void)
 		free(startVAs[blockIndex]);
 		block_size = get_block_size(startVAs[blockIndex]) ;
 		expectedSize = allocSizes[0]+allocSizes[1];
-		if (block_size != expectedSize)
+		if (check_block(startVAs[blockIndex],startVAs[blockIndex], expectedSize, 0) == 0)
 		{
 			is_correct = 0;
-			cprintf	("test_free_2 #3.2.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",expectedSize,block_size);
+			cprintf("test_free_2 #3.2: WRONG FREE!\n");
 		}
-		block_status = is_free_block(startVAs[blockIndex]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #3.2.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
-		}
-		if (get_block_size(startVAs[blockIndex+1]) != 0 || is_free_block(startVAs[blockIndex+1]) != 0)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #3.2.3: WRONG FREE! make sure to ZEROing the size & is_free values of the vanishing block.\n");
-		}
+
 		if (is_correct)
 		{
 			eval += 10;
@@ -281,22 +258,10 @@ void _main(void)
 		free(startVAs[blockIndex]);
 		block_size = get_block_size(startVAs[blockIndex-1]) ;
 		expectedSize = allocSizes[3]+allocSizes[3]+allocSizes[4];
-		if (block_size != expectedSize)
+		if (check_block(startVAs[blockIndex-1],startVAs[blockIndex-1], expectedSize, 0) == 0)
 		{
 			is_correct = 0;
-			cprintf	("test_free_2 #4.1: WRONG FREE! block size after free is not correct. Expected %d, Actual %d\n",expectedSize,block_size);
-		}
-		block_status = is_free_block(startVAs[blockIndex-1]) ;
-		if (block_status != 1)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #4.2: WRONG FREE! block status (is_free) not equal 1 after freeing.\n");
-		}
-		if (get_block_size(startVAs[blockIndex]) != 0 || is_free_block(startVAs[blockIndex]) != 0 ||
-				get_block_size(startVAs[blockIndex+1]) != 0 || is_free_block(startVAs[blockIndex+1]) != 0)
-		{
-			is_correct = 0;
-			cprintf("test_free_2 #4.3: WRONG FREE! make sure to ZEROing the size & is_free values of the vanishing block.\n");
+			cprintf("test_free_2 #4: WRONG FREE!\n");
 		}
 		if (is_correct)
 		{
@@ -304,39 +269,50 @@ void _main(void)
 		}
 	}
 
-
 	//====================================================================//
 	/*Allocate After Free Scenarios */
 	cprintf("5: Allocate After Free [should be placed in coalesced blocks]\n\n") ;
 	{
 		cprintf("	5.1: in block coalesces with NEXT\n\n") ;
 		is_correct = 1;
-		actualSize = 4*sizeof(int);
-		va = malloc(actualSize);
-		//Check returned va
-		void* expected = (void*)(USER_HEAP_START + sizeOfMetaData);
-		if(va == NULL || (va != expected))
+		cprintf("	5.1.1: a. at head\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.1.1: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			actualSize = 4*sizeof(int);
+			expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
+			va = malloc(actualSize);
+			//Check returned va
+			expectedVA = (void*)(USER_HEAP_START + sizeOfMetaData);
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.1.1: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
-		actualSize = 2*sizeof(int) ;
-		va = malloc(actualSize);
-		//Check returned va
-		expected = (void*)(USER_HEAP_START + sizeOfMetaData + 4*sizeof(int) + sizeOfMetaData);
-		if(va == NULL || (va != expected))
+		cprintf("	5.1.2: b. after the prev alloc in 5.1.1\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.1.2: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			actualSize = 2*sizeof(int) ;
+			va = malloc(actualSize);
+			expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
+			//Check returned va
+			expectedVA = (void*)(USER_HEAP_START + sizeOfMetaData + 4*sizeof(int) + sizeOfMetaData);
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.1.2: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
-		actualSize = 5*sizeof(int);
-		va = malloc(actualSize);
-		//Check returned va
-		expected = startVAs[1*allocCntPerSize - 1];
-		if(va == NULL || (va != expected))
+		cprintf("	5.1.3: c. between two blocks [INTERNAL FRAGMENTATION CASE]\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.1.3: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			actualSize = 5*sizeof(int); //20B
+			expectedSize = allocSizes[0] + allocSizes[1]; //20B + 16B [Internal Fragmentation of 8 Bytes]
+			va = malloc(actualSize);
+			//Check returned va
+			expectedVA = startVAs[1*allocCntPerSize - 1];
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.1.3: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
 		if (is_correct)
 		{
@@ -346,13 +322,14 @@ void _main(void)
 		cprintf("	5.2: in block coalesces with PREV & NEXT\n\n") ;
 		is_correct = 1;
 		actualSize = 3*kilo/2;
+		expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
 		va = malloc(actualSize);
 		//Check returned va
-		expected = startVAs[4*allocCntPerSize - 2];
-		if(va == NULL || (va != expected))
+		expectedVA = startVAs[4*allocCntPerSize - 2];
+		if (check_block(va, expectedVA, expectedSize, 1) == 0)
 		{
 			is_correct = 0;
-			cprintf("test_free_2 #5.2: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			cprintf("test_free_2 #5.2: WRONG ALLOCATE AFTER FREE!\n");
 		}
 		if (is_correct)
 		{
@@ -360,17 +337,22 @@ void _main(void)
 		}
 
 		cprintf("	5.3: in block coalesces with PREV\n\n") ;
-		is_correct = 1;
-		actualSize = 30*sizeof(char) ;
-		va = malloc(actualSize);
-		//Check returned va
-		expected = startVAs[2*allocCntPerSize];
-		if(va == NULL || (va != expected))
+		cprintf("	5.3.1: a. between two blocks\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.3.1: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			is_correct = 1;
+			actualSize = 30*sizeof(char) ;
+			expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
+			va = malloc(actualSize);
+			//Check returned va
+			expectedVA = startVAs[2*allocCntPerSize];
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.3.1: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
-		actualSize = 3*kilo/2 ;
+		actualSize = 3*kilo/2 - sizeOfMetaData ;
+		expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
 
 		//dummy allocation to consume the 1st 1.5 KB free block
 		{
@@ -380,31 +362,45 @@ void _main(void)
 		{
 			va = malloc(actualSize);
 		}
-		va = malloc(actualSize);
-		//Check returned va
-		expected = startVAs[numOfAllocs*allocCntPerSize-2];
-		if(va == NULL || (va != expected))
+
+		cprintf("	5.3.2: b. at tail\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.3.2: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			actualSize = 3*kilo/2 ;
+			expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
+
+			print_blocks_list(freeBlocksList);
+
+			va = malloc(actualSize);
+
+			//Check returned va
+			expectedVA = startVAs[numOfAllocs*allocCntPerSize-1];
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.3.2: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
 
-		actualSize = 3*kilo/2 ;
-		va = malloc(actualSize);
-
-		//Check returned va
-		expected = (void*)startVAs[numOfAllocs*allocCntPerSize-2] + 3*kilo/2 + sizeOfMetaData;
-		if(va == NULL || (va != expected))
+		cprintf("	5.3.3: c. after the prev allocated block in 5.3.2\n\n") ;
 		{
-			is_correct = 0;
-			cprintf("test_free_2 #5.3.3: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", expected, va);
+			actualSize = 3*kilo/2 ;
+			expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
+
+			va = malloc(actualSize);
+
+			//Check returned va
+			expectedVA = (void*)startVAs[numOfAllocs*allocCntPerSize-1] + 3*kilo/2 + sizeOfMetaData;
+			if (check_block(va, expectedVA, expectedSize, 1) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_free_2 #5.3.3: WRONG ALLOCATE AFTER FREE!\n");
+			}
 		}
 		if (is_correct)
 		{
 			eval += 10;
 		}
 	}
-
 
 	//====================================================================//
 	/*Check memory allocation*/
@@ -422,11 +418,11 @@ void _main(void)
 		}
 	}
 
-	uint32 expectedAllocatedSize = 0;
-	for (int i = 0; i < numOfAllocs; ++i)
-	{
-		expectedAllocatedSize += allocCntPerSize * allocSizes[i] ;
-	}
+	uint32 expectedAllocatedSize = curTotalSize;
+//	for (int i = 0; i < numOfAllocs; ++i)
+//	{
+//		expectedAllocatedSize += allocCntPerSize * allocSizes[i] ;
+//	}
 	expectedAllocatedSize = ROUNDUP(expectedAllocatedSize, PAGE_SIZE);
 	uint32 expectedAllocNumOfPages = expectedAllocatedSize / PAGE_SIZE; 				/*# pages*/
 	uint32 expectedAllocNumOfTables = ROUNDUP(expectedAllocatedSize, PTSIZE) / PTSIZE; 	/*# tables*/
@@ -454,7 +450,8 @@ void _main(void)
 		}
 	}
 
-	cprintf("test free() with FIRST FIT completed [DYNAMIC ALLOCATOR]. Evaluation = %d%\n", eval);
+	cprintf("%~test free() with FIRST FIT completed [DYNAMIC ALLOCATOR]. Evaluation = %d%\n", eval);
 
 	return;
 }
+
