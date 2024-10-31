@@ -408,7 +408,7 @@ set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_bl
 }
 
 void*
-shrink(void* va, uint32 new_required_size)
+shrink_block(void* va, uint32 new_required_size)
 {
 	// avoid accessing nullptr
 	assert(va != NULL);
@@ -451,7 +451,7 @@ shrink(void* va, uint32 new_required_size)
 }
 
 void*
-expand(void* va, uint32 new_required_size)
+expand_block(void* va, uint32 new_required_size)
 {
 	// avoid accessing nullptr
 	assert(va != NULL);
@@ -529,9 +529,9 @@ realloc_block_FF(void* va, uint32 new_size)
 	}
 
 	if (new_required_size < old_size) {
-		return shrink(va, new_required_size);
+		return shrink_block(va, new_required_size);
 	} else {
-		void *new_va = expand(va, new_required_size);
+		void *new_va = expand_block(va, new_required_size);
 		
 		// expand happened
 		if (new_va == va) {
