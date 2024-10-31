@@ -1351,7 +1351,7 @@ void test_realloc_block_FF()
 	{
 		eval += 10;
 	}
-		
+
 	//====================================================================//
 	//[3] Test realloc with increased sizes (in the same place) merge or search
 	//====================================================================//

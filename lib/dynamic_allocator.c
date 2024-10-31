@@ -9,6 +9,7 @@
 #include "../inc/dynamic_allocator.h"
 
 
+
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -70,7 +71,7 @@ void print_blocks_list(struct MemBlock_LIST list)
 	cprintf("\nDynAlloc Blocks List:\n");
 	LIST_FOREACH(blk, &list)
 	{
-		cprintf("(size: %d, isFree: %d, address: %p)\n", get_block_size(blk), is_free_block(blk), blk) ;
+		cprintf("(size: %d, isFree: %d)\n", get_block_size(blk), is_free_block(blk)) ;
 	}
 	cprintf("=========================================\n");
 
@@ -106,7 +107,7 @@ void initialize_dynamic_allocator(uint32 daStart, uint32 initSizeOfAllocatedSpac
 	LIST_INIT(&freeBlocksList);
 	uint32 *beg_block = (uint32*)daStart;
 	*beg_block = 1;
-	struct BlockElement *first_free_block = (struct BlockElement*)(beg_block + 2); // skip the BEG block (1 word) and the block's header (1 word) to initialize the first free block 
+	struct BlockElement *first_free_block = (struct BlockElement*)(beg_block + 2); // skip the BEG block (1 word) and the block's header (1 word) to initialize the first free block
 	uint32 first_free_block_size = initSizeOfAllocatedSpace - (2 * sizeof(uint32)); // size of the free block subtracting BEG & END
 	set_block_data(first_free_block, first_free_block_size, 0);
 	LIST_INSERT_HEAD(&freeBlocksList, first_free_block);
@@ -129,7 +130,7 @@ void set_block_data(void* va, uint32 totalSize, bool isAllocated)
 //=========================================
 // [3] ALLOCATE BLOCK BY FIRST FIT:
 //=========================================
-void 
+void
 block_split(void *blk, uint32 size)
 {
     uint32 cur_blk_size = get_block_size(blk);
@@ -155,13 +156,13 @@ block_split(void *blk, uint32 size)
     LIST_INSERT_AFTER(&freeBlocksList, (struct BlockElement *)blk, (struct BlockElement *)new_blk);
 }
 
-void 
+void
 mark_blk_allocated(void *blk){
 	uint32 cur_blk_size = get_block_size(blk);
     set_block_data(blk , cur_blk_size , 1);
 }
 
-void 
+void
 mark_blk_freed(void *blk){
 	uint32 cur_blk_size = get_block_size(blk);
     set_block_data(blk , cur_blk_size , 0);
@@ -233,7 +234,7 @@ alloc_block_FF(uint32 size)
 			break;
 		}
 	}
-    
+
 	return handle_allocation(required_blk , required_size);
 }
 //=========================================
@@ -270,7 +271,7 @@ alloc_block_BF(uint32 size)
 
 	LIST_FOREACH(blk, &freeBlocksList)
 	{
-		uint32 blk_size = get_block_size(blk); 
+		uint32 blk_size = get_block_size(blk);
 		if (blk_size >= required_size) {
 			if (best_size == -1 || blk_size < best_size) {
 				// Store the address of the allocated block
@@ -279,7 +280,7 @@ alloc_block_BF(uint32 size)
 			}
 		}
 	}
-	
+
 	return handle_allocation(required_blk , required_size);
 }
 
@@ -305,10 +306,10 @@ get_footer_of_block(void *va)
 }
 
 
-void 
+void
 merge_blocks(struct BlockElement *va , struct BlockElement * v2)
 {
-	// remove right block from free list 
+	// remove right block from free list
 	LIST_REMOVE(&freeBlocksList , v2);
 
 	// adjust first block with new sizes
@@ -318,7 +319,7 @@ merge_blocks(struct BlockElement *va , struct BlockElement * v2)
 
 }
 
-void 
+void
 insert_sorted_into_free_list(struct BlockElement *va) {
 	// if list is empty , element needs to be inserted as head
 	if (LIST_EMPTY(&freeBlocksList)) {
@@ -340,7 +341,7 @@ insert_sorted_into_free_list(struct BlockElement *va) {
 }
 
 
-void 
+void
 free_block(void *va)
 {
 	// if null or already free just return.
@@ -380,21 +381,20 @@ free_block(void *va)
 			merge_blocks(va , (struct BlockElement *)nxt_va);
 		}
 	}
-	
+
 }
 
 //=========================================
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
-
 int
 is_valid_block(void* va)
 {
-	// BEG/END are special blocks, their size=0 and marked allocated
-	// so if the block doesn't have these specs, it's valid to use
+	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
+	//COMMENT THE FOLLOWING LINE BEFORE START CODING
 	return !(get_block_size(va) == 0 && !is_free_block(va));
 }
-
+	//Your Code is Here...
 void
 set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_block_size)
 {

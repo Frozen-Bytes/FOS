@@ -41,8 +41,4 @@ void kbd_intr(void); // irq 1
 void serial_intr(void); // irq 4
 void keyboard_interrupt_handler();
 
-// helpers
-void reset_cursor_position(void);
-void clear_screen_buffer(void);
-
 #endif /* _CONSOLE_H_ */

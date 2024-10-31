@@ -46,8 +46,8 @@ void initialize_uheap_dynamic_allocator(struct Env* env, uint32 daStart, uint32 
 
 //=============================================================================
 //TODO: [PROJECT'24.MS1 - #00 GIVENS] [3] DYNAMIC ALLOCATOR - helper functions
-uint32 get_block_size(void* va);
-int8 is_free_block(void* va);
+__inline__ uint32 get_block_size(void* va);
+__inline__ int8 is_free_block(void* va);
 void print_blocks_list(struct MemBlock_LIST list);
 //=============================================================================
 

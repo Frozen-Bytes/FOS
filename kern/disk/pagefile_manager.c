@@ -133,7 +133,7 @@ int allocate_disk_frame(uint32 *dfn)
 //
 // Return a frame to the disk_free_frame_list.
 //
-void free_disk_frame(uint32 dfn)
+inline void free_disk_frame(uint32 dfn)
 {
 	// Fill this function in
 	if(dfn == 0) return;
