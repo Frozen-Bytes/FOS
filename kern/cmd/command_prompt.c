@@ -486,7 +486,7 @@ int process_command(int number_of_arguments, char **arguments)
             if (current_command->num_of_args == -1) {
                 // if there isn't enough arguments
                 if (parameter_count <= 0) {
-                    LIST_INSERT_TAIL(&foundCommands, current_command);
+                    LIST_INSERT_HEAD(&foundCommands, current_command);
                     return CMD_INV_NUM_ARGS;
                 } else {
                     return command_idx;
@@ -495,7 +495,7 @@ int process_command(int number_of_arguments, char **arguments)
             // other cases
             if (parameter_count != current_command->num_of_args) {
                 // found but invalid number of arguments (case 2)
-                LIST_INSERT_TAIL(&foundCommands, current_command);
+                LIST_INSERT_HEAD(&foundCommands, current_command);
                 return CMD_INV_NUM_ARGS;
             } else {
                 return command_idx; // found normally (case 4)
@@ -508,7 +508,7 @@ int process_command(int number_of_arguments, char **arguments)
 
         // insert all strings that current input is a subsequence of
         if (is_subsequence(arguments[0], current_command->name)) {
-            LIST_INSERT_TAIL(&foundCommands, current_command);
+            LIST_INSERT_HEAD(&foundCommands, current_command);
         }
     }
     // if no strings are inserted that means that it is invalid (case 1)
