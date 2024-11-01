@@ -42,12 +42,12 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 		panic("kheap.c::initialize_kheap_dynamic_allocator(), initial size exceed the given limit");
 	}
 
-	KHEAP_START = daStart;
-	KHEAP_BREAK = daStart + initSizeToAllocate - 1;
-	KHEAP_LIMIT = daLimit;
+	kheap_start = daStart;
+	kheap_break = daStart + initSizeToAllocate - 1;
+	kheap_limit = daLimit;
 
 	// allocate all pages in the given range
-	for (uint32 va = KHEAP_START; va <= KHEAP_BREAK; va += PAGE_SIZE) {
+	for (uint32 va = kheap_start; va <= kheap_break; va += PAGE_SIZE) {
 		int status = allocate_page(va);
 		if (status == -1) {
 			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
