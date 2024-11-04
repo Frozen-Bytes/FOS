@@ -11,14 +11,16 @@
 //	On success: 0
 //	Otherwise (if no memory OR initial size exceed the given limit): PANIC
 
+#define ACTUAL_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
+
 int allocate_page(uint32 va)
 {
 	uint32 *page_table = NULL;
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
 
 	// already allocated
-	if (page_table != NULL) {
-		return 0;
+	if (frame_info != NULL) {
+		return -1;
 	}
 
 	int status = allocate_frame(&frame_info);
@@ -85,10 +87,61 @@ void* kmalloc(unsigned int size)
 {
 	//TODO: [PROJECT'24.MS2 - #03] [1] KERNEL HEAP - kmalloc
 	// Write your code here, remove the panic and write your code
-	kpanic_into_prompt("kmalloc() is not implemented yet...!!");
+	// kpanic_into_prompt("kmalloc() is not implemented yet...!!");
+    acquire_spinlock(&MemFrameLists.mfllock);
+	// allocate by first-fit case
+    if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
+		void *ptr = alloc_block_FF(size);
+		release_spinlock(&MemFrameLists.mfllock);
+		return ptr;
+	}
+	
+	uint32 blk_start_ptr = -1;
 
+	// convert given size from bytes to pages
+	uint32 cur_blk_size = 0 , blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+   
+	for (uint32 i = ACTUAL_START ; i + PAGE_SIZE - 1 <= KERNEL_HEAP_MAX ; i += PAGE_SIZE) {
+		uint32 *ptr_page_table = NULL;
+		struct FrameInfo *cur_frame = get_frame_info(ptr_page_directory , i , &ptr_page_table);
+
+		// it means that current page is mapped.
+		if (cur_frame != NULL) {
+			cur_blk_size = 0;
+			continue;
+		}
+
+		// start of new segment
+		if (!cur_blk_size) { 
+			blk_start_ptr = i;
+		}
+
+		cur_blk_size++;
+
+		if (cur_blk_size == blk_size_needed) {
+			break;
+		}
+	}
+
+
+	if (cur_blk_size != blk_size_needed) {
+		release_spinlock(&MemFrameLists.mfllock);
+		return NULL;
+	}
+
+
+
+	uint32 ret = blk_start_ptr;
+	// allocate pages from segment start.
+	while (cur_blk_size--) {
+		allocate_page(blk_start_ptr);
+		blk_start_ptr += PAGE_SIZE;
+	}
+
+	release_spinlock(&MemFrameLists.mfllock);
+	return (void *)(ret);
+    
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
-
 }
 
 void kfree(void* virtual_address)
