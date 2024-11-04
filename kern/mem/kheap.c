@@ -17,7 +17,7 @@ int allocate_page(uint32 va)
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
 
 	// already allocated
-	if (page_table != NULL) {
+	if (frame_info != NULL) {
 		return 0;
 	}
 
