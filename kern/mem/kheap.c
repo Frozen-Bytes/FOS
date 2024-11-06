@@ -61,6 +61,17 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	return 0;
 }
 
+/*
+	Description:
+	Since virtual address space is mapped in quanta of pages (multiple of 4KB). 
+	sbrk always increase the size by multiple of pages
+	If increment > 0: if within the hard limit
+	move the segment break of the kernel to increase the size of its heap by the given numOfPages,
+	allocate pages and map them into the kernel virtual address space as necessary,
+	returns the address of the previous break (i.e. the beginning of newly mapped memory).
+	If increment = 0: just return the current position of the segment break
+	if no memory OR break exceed the hard limit: it should return -1
+*/
 void* sbrk(int numOfPages)
 {
 	/* numOfPages > 0: move the segment break of the kernel to increase the size of its heap by the given numOfPages,
@@ -74,12 +85,24 @@ void* sbrk(int numOfPages)
 	 */
 
 	//MS2: COMMENT THIS LINE BEFORE START CODING==========
-	return (void*)-1 ;
+	// return (void*)-1 ;
 	//====================================================
 
 	//TODO: [PROJECT'24.MS2 - #02] [1] KERNEL HEAP - sbrk
 	// Write your code here, remove the panic and write your code
-	panic("sbrk() is not implemented yet...!!");
+	// panic("sbrk() is not implemented yet...!!");
+	if(numOfPages == 0){
+		return (void*)kheap_break;
+	}
+	uint32 new_added_size = numOfPages * PAGE_SIZE;
+	uint32 new_break = kheap_break + new_added_size;
+	if(new_break > kheap_limit){
+		return (void*)-1;
+	}
+	void *old_break = (void*)kheap_break;
+	kheap_break = new_break;
+
+	return old_break;
 }
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
