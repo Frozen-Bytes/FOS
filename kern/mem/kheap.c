@@ -96,13 +96,28 @@ void* sbrk(int numOfPages)
 	}
 	uint32 new_added_size = numOfPages * PAGE_SIZE;
 	uint32 new_break = kheap_break + new_added_size;
-	if(new_break > kheap_limit){
+	if(new_break > kheap_limit || new_break < kheap_break){
 		return (void*)-1;
 	}
-	void *old_break = (void*)kheap_break;
+	uint32 start_page = ROUNDDOWN(kheap_break, PAGE_SIZE);
+	uint32 end_page = ROUNDUP(kheap_break, PAGE_SIZE);
+	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE){
+		uint32 *page_table;
+		if(get_page_table(ptr_page_directory, va, &page_table) == TABLE_IN_MEMORY && (page_table[PTX(va)] & PERM_PRESENT)){
+			continue;
+		}
+		struct FrameInfo *frame;
+		allocate_frame(&frame);
+		int perm = (PERM_PRESENT | PERM_WRITEABLE);
+		map_frame(ptr_page_directory, frame, va, perm);
+	}
+	
+
+
+	uint32 old_break = kheap_break;
 	kheap_break = new_break;
 
-	return old_break;
+	return (void*)old_break;
 }
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
