@@ -13,7 +13,8 @@
 
 #define ACTUAL_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
 
-int allocate_page(uint32 va)
+
+int allocate_page(uint32 va , uint32 perm)
 {
 	uint32 *page_table = NULL;
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
@@ -28,7 +29,7 @@ int allocate_page(uint32 va)
 		return -1;
 	}
 
-	status = map_frame(ptr_page_directory, frame_info, va, PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+	status = map_frame(ptr_page_directory, frame_info, va, perm);
 
 	if (status == E_NO_MEM) {
 		free_frame(frame_info);
@@ -48,9 +49,21 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	kheap_break = daStart + initSizeToAllocate - 1;
 	kheap_limit = daLimit;
 
+	LIST_INIT(&free_page_list);
+
+    allocate_page(ACTUAL_START,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+    struct free_page_info *first_blk =  (struct free_page_info *) ACTUAL_START;
+
+	first_blk->block_sz = (KERNEL_HEAP_MAX - ACTUAL_START) / PAGE_SIZE;
+
+	first_blk->starting_address = ACTUAL_START;
+
+	LIST_INSERT_HEAD(&free_page_list,first_blk);
+	
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va <= kheap_break; va += PAGE_SIZE) {
-		int status = allocate_page(va);
+		int status = allocate_page(va,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
 		if (status == -1) {
 			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
 		}
@@ -83,6 +96,37 @@ void* sbrk(int numOfPages)
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
 
+void split_page(struct free_page_info * blk, uint32 size)
+{
+    
+	// |..........|..........|
+	uint32 rem_sz = blk->block_sz - size;
+
+	if (rem_sz == 0) {
+		LIST_REMOVE(&free_page_list , blk);
+
+		unmap_frame(ptr_page_directory , blk ->starting_address);
+
+		return;
+	}
+
+	uint32 new_address = blk->starting_address + (size * PAGE_SIZE);
+
+	allocate_page(new_address , PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+	struct free_page_info *new_page = (struct free_page_info *)new_address;
+
+	new_page->block_sz = rem_sz;
+
+	new_page->starting_address = new_address;
+
+	LIST_INSERT_AFTER(&free_page_list , blk , new_page);
+
+    LIST_REMOVE(&free_page_list , blk);
+
+	unmap_frame(ptr_page_directory , blk ->starting_address);
+}
+
 void* kmalloc(unsigned int size)
 {
 	//TODO: [PROJECT'24.MS2 - #03] [1] KERNEL HEAP - kmalloc
@@ -92,54 +136,66 @@ void* kmalloc(unsigned int size)
 	// allocate by first-fit case
     if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
 		void *ptr = alloc_block_FF(size);
+		
 		release_spinlock(&MemFrameLists.mfllock);
+		
 		return ptr;
 	}
 	
-	uint32 blk_start_ptr = -1;
+	struct free_page_info * blk_start_ptr = NULL;
 
 	// convert given size from bytes to pages
-	uint32 cur_blk_size = 0 , blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+	uint32 blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
    
-	for (uint32 i = ACTUAL_START ; i + PAGE_SIZE - 1 <= KERNEL_HEAP_MAX ; i += PAGE_SIZE) {
-		uint32 *ptr_page_table = NULL;
-		struct FrameInfo *cur_frame = get_frame_info(ptr_page_directory , i , &ptr_page_table);
+	struct free_page_info *cur_blk = NULL;
 
-		// it means that current page is mapped.
-		if (cur_frame != NULL) {
-			cur_blk_size = 0;
-			continue;
-		}
+	if (LIST_SIZE(&MemFrameLists.free_frame_list) < blk_size_needed) {
+		release_spinlock(&MemFrameLists.mfllock);
 
-		// start of new segment
-		if (!cur_blk_size) { 
-			blk_start_ptr = i;
-		}
+      	return NULL;
+	}
 
-		cur_blk_size++;
+	// cprintf("PLEASE \n");
 
-		if (cur_blk_size == blk_size_needed) {
-			break;
+	// struct free_page_info *tmp = LIST_HEAD(&free_page_list);
+	// cprintf()
+
+	LIST_FOREACH(cur_blk , &free_page_list) {
+		if (cur_blk->block_sz >= blk_size_needed ) {
+          blk_start_ptr = cur_blk;
+
+		  break;
 		}
 	}
 
-
-	if (cur_blk_size != blk_size_needed) {
+	if (blk_start_ptr == NULL) {
 		release_spinlock(&MemFrameLists.mfllock);
+
 		return NULL;
 	}
 
+    uint32 cur_page = blk_start_ptr->starting_address;
+	
+    uint32 start_page = blk_start_ptr->starting_address;
+	
+	split_page(blk_start_ptr , blk_size_needed);
 
-
-	uint32 ret = blk_start_ptr;
 	// allocate pages from segment start.
-	while (cur_blk_size--) {
-		allocate_page(blk_start_ptr);
-		blk_start_ptr += PAGE_SIZE;
+	allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+	cur_page += PAGE_SIZE;
+
+	blk_size_needed--;
+
+	while (blk_size_needed--) {
+		allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+		
+		cur_page += PAGE_SIZE;
 	}
 
 	release_spinlock(&MemFrameLists.mfllock);
-	return (void *)(ret);
+	
+	return (void *)(start_page);
     
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
 }
