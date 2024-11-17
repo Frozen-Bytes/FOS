@@ -11,7 +11,10 @@
 //	On success: 0
 //	Otherwise (if no memory OR initial size exceed the given limit): PANIC
 
-int allocate_page(uint32 va)
+#define ACTUAL_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
+
+
+int allocate_page(uint32 va , uint32 perm)
 {
 	uint32 *page_table = NULL;
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
@@ -26,7 +29,7 @@ int allocate_page(uint32 va)
 		return -1;
 	}
 
-	status = map_frame(ptr_page_directory, frame_info, va, PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+	status = map_frame(ptr_page_directory, frame_info, va, perm);
 
 	if (status == E_NO_MEM) {
 		free_frame(frame_info);
@@ -48,7 +51,7 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va <= kheap_break; va += PAGE_SIZE) {
-		int status = allocate_page(va);
+		int status = allocate_page(va,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
 		if (status == -1) {
 			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
 		}
@@ -88,7 +91,6 @@ void* kmalloc(unsigned int size)
 	kpanic_into_prompt("kmalloc() is not implemented yet...!!");
 
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
-
 }
 
 void kfree(void* virtual_address)
