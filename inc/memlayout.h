@@ -215,6 +215,10 @@ struct FrameInfo {
 	struct Env *proc;
 	uint32 bufferedVA;
 	unsigned char isBuffered;
+
+	// Added to implement kheap_virtual_address.
+	// This doesn't contain an offset, only the virtual address of the page.
+	uint32 mapped_page_virtual_address;
 };
 
 #endif /* !__ASSEMBLER__ */
