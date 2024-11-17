@@ -207,9 +207,9 @@ handle_allocation(void *required_blk, uint32 required_size) {
         LIST_REMOVE(&freeBlocksList, (struct BlockElement*)required_blk);
         return required_blk;
     }
-
     // If no fitting block is found, request more memory from sbrk
     uint32 new_allocated_size = ROUNDUP(required_size, PAGE_SIZE);
+	// to start the allocation from the old END BLOCK
 	void *start_new_allocated_memory = (void*)((uint8*)sbrk(new_allocated_size / PAGE_SIZE) - sizeof(uint32));
     if (start_new_allocated_memory == (void*)-1) {
 		panic("no more space");
@@ -217,8 +217,10 @@ handle_allocation(void *required_blk, uint32 required_size) {
     } else {
 		struct BlockElement *new_free_block = (struct BlockElement*)((uint32*)start_new_allocated_memory + 1);
 		set_block_data(new_free_block, new_allocated_size, 0);
-		bool is_allocated = *((uint32*)start_new_allocated_memory - 1) & 1; // footer of the prev block
+		// footer of the prev block to check if it's allocated
+		bool is_allocated = *((uint32*)start_new_allocated_memory - 1) & 1;
 		if(is_allocated){
+			// no merge is expected
 			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
 	        block_split((void*)new_free_block, required_size);
 	        mark_blk_allocated((void*)new_free_block);
@@ -226,6 +228,7 @@ handle_allocation(void *required_blk, uint32 required_size) {
 			required_blk = (void*)new_free_block;
 		}
 		else{
+			// merge is expected so we start from the base of the last block
 			struct BlockElement *last_free_block = LIST_LAST(&freeBlocksList);
 			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
 			merge_blocks(last_free_block, new_free_block);
