@@ -4,17 +4,71 @@
 #include <inc/dynamic_allocator.h>
 #include "memory_manager.h"
 
+#define ACTUAL_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
+
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
 //Remember: call the initialize_dynamic_allocator(..) to complete the initialization
 //Return:
 //	On success: 0
 //	Otherwise (if no memory OR initial size exceed the given limit): PANIC
+int allocate_page(uint32 va , uint32 perm)
+{
+	uint32 *page_table = NULL;
+	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
+
+	// already allocated
+	if (frame_info != NULL) {
+		free_frame(frame_info);
+	}
+
+	int status = allocate_frame(&frame_info);
+	if (status == E_NO_MEM) {
+		return -1;
+	}
+
+	status = map_frame(ptr_page_directory, frame_info, va, perm);
+
+	if (status == E_NO_MEM) {
+		free_frame(frame_info);
+		return -1;
+	}
+	return 0;
+}
+
 int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate, uint32 daLimit)
 {
 	//TODO: [PROJECT'24.MS2 - #01] [1] KERNEL HEAP - initialize_kheap_dynamic_allocator
-	// Write your code here, remove the panic and write your code
-	panic("initialize_kheap_dynamic_allocator() is not implemented yet...!!");
+	if (daStart + initSizeToAllocate >= daLimit) {
+		panic("kheap.c::initialize_kheap_dynamic_allocator(), initial size exceed the given limit");
+	}
+
+	kheap_start = daStart;
+	kheap_break = daStart + initSizeToAllocate;
+	kheap_limit = daLimit;
+
+	LIST_INIT(&free_page_list);
+
+    allocate_page(ACTUAL_START,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+    struct free_page_info *first_blk =  (struct free_page_info *) ACTUAL_START;
+
+	first_blk->block_sz = (KERNEL_HEAP_MAX - ACTUAL_START) / PAGE_SIZE;
+
+	first_blk->starting_address = ACTUAL_START;
+
+	LIST_INSERT_HEAD(&free_page_list,first_blk);
+	
+	// allocate all pages in the given range
+	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
+		int status = allocate_page(va,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+		if (status == -1) {
+			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
+		}
+	}
+
+	initialize_dynamic_allocator(daStart, initSizeToAllocate);
+	return 0;
 }
 
 /*
@@ -55,37 +109,131 @@ void* sbrk(int numOfPages)
 	if(new_break > kheap_limit || new_break < kheap_break){
 		return (void*)-1;
 	}
-	uint32 start_page = ROUNDDOWN(kheap_break, PAGE_SIZE);
-	uint32 end_page = ROUNDUP(kheap_break, PAGE_SIZE);
+	uint32 start_page = kheap_break;
+	uint32 end_page = ROUNDUP(new_break, PAGE_SIZE);
 	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE){
-		uint32 *page_table;
-		if(get_page_table(ptr_page_directory, va, &page_table) == TABLE_IN_MEMORY && (page_table[PTX(va)] & PERM_PRESENT)){
-			continue;
-		}
 		struct FrameInfo *frame;
 		allocate_frame(&frame);
+		// allocate_page(va);
 		int perm = (PERM_PRESENT | PERM_WRITEABLE);
 		map_frame(ptr_page_directory, frame, va, perm);
+		// free_frame(frame);
 	}
 	
-
-
 	uint32 old_break = kheap_break;
 	kheap_break = new_break;
+	void *PE = (void*)(old_break - sizeof(uint32));
+	// uint32 *end_block = (uint32*)(daStart + initSizeOfAllocatedSpace - sizeof(uint32));
+	uint32 *end_block = (uint32*)(kheap_break - sizeof(uint32));
+	*end_block = 1;
 
-	return (void*)old_break;
+	return (void*)(old_break);
 }
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
+
+void split_page(struct free_page_info * blk, uint32 size)
+{
+    
+	// |..........|..........|
+	uint32 rem_sz = blk->block_sz - size;
+
+	if (rem_sz == 0) {
+		LIST_REMOVE(&free_page_list , blk);
+
+		unmap_frame(ptr_page_directory , blk ->starting_address);
+
+		return;
+	}
+
+	uint32 new_address = blk->starting_address + (size * PAGE_SIZE);
+
+	allocate_page(new_address , PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+	struct free_page_info *new_page = (struct free_page_info *)new_address;
+
+	new_page->block_sz = rem_sz;
+
+	new_page->starting_address = new_address;
+
+	LIST_INSERT_AFTER(&free_page_list , blk , new_page);
+
+    LIST_REMOVE(&free_page_list , blk);
+
+	unmap_frame(ptr_page_directory , blk ->starting_address);
+}
 
 void* kmalloc(unsigned int size)
 {
 	//TODO: [PROJECT'24.MS2 - #03] [1] KERNEL HEAP - kmalloc
 	// Write your code here, remove the panic and write your code
-	kpanic_into_prompt("kmalloc() is not implemented yet...!!");
+	// kpanic_into_prompt("kmalloc() is not implemented yet...!!");
+    acquire_spinlock(&MemFrameLists.mfllock);
+	// allocate by first-fit case
+    if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
+		void *ptr = alloc_block_FF(size);
+		
+		release_spinlock(&MemFrameLists.mfllock);
+		
+		return ptr;
+	}
+	
+	struct free_page_info * blk_start_ptr = NULL;
 
+	// convert given size from bytes to pages
+	uint32 blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+   
+	struct free_page_info *cur_blk = NULL;
+
+	if (LIST_SIZE(&MemFrameLists.free_frame_list) < blk_size_needed) {
+		release_spinlock(&MemFrameLists.mfllock);
+
+      	return NULL;
+	}
+
+	// cprintf("PLEASE \n");
+
+	// struct free_page_info *tmp = LIST_HEAD(&free_page_list);
+	// cprintf()
+
+	LIST_FOREACH(cur_blk , &free_page_list) {
+		if (cur_blk->block_sz >= blk_size_needed ) {
+          blk_start_ptr = cur_blk;
+
+		  break;
+		}
+	}
+
+	if (blk_start_ptr == NULL) {
+		release_spinlock(&MemFrameLists.mfllock);
+
+		return NULL;
+	}
+
+    uint32 cur_page = blk_start_ptr->starting_address;
+	
+    uint32 start_page = blk_start_ptr->starting_address;
+	
+	split_page(blk_start_ptr , blk_size_needed);
+
+	// allocate pages from segment start.
+	allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+
+	cur_page += PAGE_SIZE;
+
+	blk_size_needed--;
+
+	while (blk_size_needed--) {
+		allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+		
+		cur_page += PAGE_SIZE;
+	}
+
+	release_spinlock(&MemFrameLists.mfllock);
+	
+	return (void *)(start_page);
+    
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
-
 }
 
 void kfree(void* virtual_address)

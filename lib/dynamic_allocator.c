@@ -78,6 +78,22 @@ void print_blocks_list(struct MemBlock_LIST list)
 //
 ////********************************************************************************//
 ////********************************************************************************//
+uint32*
+get_header_of_block(void *va)
+{
+	// move 4 bytes back from first free space.
+	uint32 *header = (uint32*) va - 1;
+	return header;
+}
+
+uint32*
+get_footer_of_block(void *va)
+{
+	uint32 *header = (uint32*) va - 1;
+	// move to end of footer than go back 4 bytes.
+	uint32 *footer = (uint32*)((uint8*)header + get_block_size(va) - sizeof(uint32));
+	return footer;
+}
 
 //==================================================================================//
 //============================ REQUIRED FUNCTIONS ==================================//
@@ -167,6 +183,18 @@ mark_blk_freed(void *blk){
     set_block_data(blk , cur_blk_size , 0);
 }
 
+void
+merge_blocks(struct BlockElement *va , struct BlockElement * v2)
+{
+	// remove right block from free list 
+	LIST_REMOVE(&freeBlocksList , v2);
+
+	// adjust first block with new sizes
+	uint32 new_sz = get_block_size(va) + get_block_size(v2);
+
+	set_block_data(va , new_sz , 0);
+
+}
 
 void*
 handle_allocation(void *required_blk, uint32 required_size) {
@@ -181,13 +209,70 @@ handle_allocation(void *required_blk, uint32 required_size) {
     }
 
     // If no fitting block is found, request more memory from sbrk
-    required_blk = sbrk(required_size);
-    if ((int32)required_blk == -1) {
+    uint32 new_allocated_size = ROUNDUP(required_size, PAGE_SIZE);
+	void *start_new_allocated_memory = (void*)((uint8*)sbrk(new_allocated_size / PAGE_SIZE) - sizeof(uint32));
+
+    if (start_new_allocated_memory == (void*)-1) {
+		panic("no more space");
         return NULL;
     } else {
+		struct BlockElement *new_free_block = (struct BlockElement*)((uint32*)start_new_allocated_memory + 1);
+		set_block_data(new_free_block, new_allocated_size, 0);
+		// alloc_block_FF(new_allocated_size - 2 * sizeof(uint32));
+		bool is_allocated = *((uint32*)start_new_allocated_memory - 1) & 1;
+		bool size = *((uint32*)start_new_allocated_memory - 1);
+		if(is_allocated){
+
+			// struct BlockElement *blkb = NULL;
+			// LIST_FOREACH(blkb, &freeBlocksList)
+			// {
+			// 	uint32 blk_size = get_block_size(blkb);
+			// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+			// }
+			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
+
+			// struct BlockElement *blkb = NULL;
+			// LIST_FOREACH(blkb, &freeBlocksList)
+			// {
+			// 	uint32 blk_size = get_block_size(blkb);
+			// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+			// }
+			// alloc_block_FF(new_allocated_size - 2 * sizeof(uint32));
+	        block_split((void*)new_free_block, required_size);
+	        mark_blk_allocated((void*)new_free_block);
+			LIST_REMOVE(&freeBlocksList , new_free_block);
+			required_blk = (void*)new_free_block;
+		}
+		else{
+
+			// struct BlockElement *blkb = NULL;
+			// LIST_FOREACH(blkb, &freeBlocksList)
+			// {
+			// 	uint32 blk_size = get_block_size(blkb);
+			// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+			// }
+			struct BlockElement *last_free_block = LIST_LAST(&freeBlocksList);
+			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
+			merge_blocks(last_free_block, new_free_block);
+	        block_split((void*)last_free_block, required_size);
+	        mark_blk_allocated((void*)last_free_block);
+			LIST_REMOVE(&freeBlocksList , last_free_block);
+			required_blk = (void*)last_free_block;
+
+			// struct BlockElement *blkb = NULL;
+			// LIST_FOREACH(blkb, &freeBlocksList)
+			// {
+			// 	uint32 blk_size = get_block_size(blkb);
+			// 	cprintf("llol I am here %x with size %d haha wait %d\n", blkb, blk_size, *((uint32*)blkb-1));
+			// }
+			// alloc_block_FF(new_allocated_size - 2 * sizeof(uint32));
+		}
+		// merge_blocks(new_free_block, LIST_LAST(&freeBlocksList));
         // Split the block if it's too large
-        block_split(required_blk, required_size);
-        mark_blk_allocated(required_blk);
+        // block_split((void*)new_free_block, new_allocated_size);
+
+        // Remove the block from the free list
+		cprintf("header %x, val %d, footer %x, val %d, size %d \n", get_header_of_block(required_blk), *get_header_of_block(required_blk), get_footer_of_block(required_blk), *get_footer_of_block(required_blk), get_block_size(required_blk));
         return required_blk;
     }
 }
@@ -287,36 +372,8 @@ alloc_block_BF(uint32 size)
 // [5] FREE BLOCK WITH COALESCING:
 //===================================================
 
-uint32*
-get_header_of_block(void *va)
-{
-	// move 4 bytes back from first free space.
-	uint32 *header = (uint32*) va - 1;
-	return header;
-}
-
-uint32*
-get_footer_of_block(void *va)
-{
-	uint32 *header = (uint32*) va - 1;
-	// move to end of footer than go back 4 bytes.
-	uint32 *footer = (uint32*)((uint8*)header + get_block_size(va) - sizeof(uint32));
-	return footer;
-}
 
 
-void 
-merge_blocks(struct BlockElement *va , struct BlockElement * v2)
-{
-	// remove right block from free list 
-	LIST_REMOVE(&freeBlocksList , v2);
-
-	// adjust first block with new sizes
-	uint32 new_sz = get_block_size(va) + get_block_size(v2);
-
-	set_block_data(va , new_sz , 0);
-
-}
 
 void 
 insert_sorted_into_free_list(struct BlockElement *va) {
