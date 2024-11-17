@@ -246,13 +246,26 @@ void kfree(void* virtual_address)
 unsigned int kheap_physical_address(unsigned int virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - #05] [1] KERNEL HEAP - kheap_physical_address
-	// Write your code here, remove the panic and write your code
-	panic("kheap_physical_address() is not implemented yet...!!");
-
 	//return the physical address corresponding to given virtual_address
-	//refer to the project presentation and documentation for details
-
+	//physical address including offset (not only the frame physical address)
 	//EFFICIENT IMPLEMENTATION ~O(1) IS REQUIRED ==================
+
+	struct FrameInfo *corresponding_frame;
+	// Not needed but get_frame_info function requires an output parameter
+	uint32 *ptr_page_table;
+
+	corresponding_frame = get_frame_info(ptr_page_directory, virtual_address, &ptr_page_table);
+
+	// if virtual address doesn't map to anything
+	if(corresponding_frame == NULL){
+		return 0;
+	}
+
+	uint32 frame_physical_address = to_physical_address(corresponding_frame);
+	// Frame physical address + offset
+	uint32 kheap_physical_address = frame_physical_address + PGOFF(virtual_address);
+
+	return kheap_physical_address;
 }
 
 unsigned int kheap_virtual_address(unsigned int physical_address)
