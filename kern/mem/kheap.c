@@ -100,7 +100,6 @@ void* sbrk(int numOfPages)
 
 	//TODO: [PROJECT'24.MS2 - #02] [1] KERNEL HEAP - sbrk
 	// Write your code here, remove the panic and write your code
-	// panic("sbrk() is not implemented yet...!!");
 	if(numOfPages == 0){
 		return (void*)kheap_break;
 	}
@@ -114,16 +113,13 @@ void* sbrk(int numOfPages)
 	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE){
 		struct FrameInfo *frame;
 		allocate_frame(&frame);
-		// allocate_page(va);
 		int perm = (PERM_PRESENT | PERM_WRITEABLE);
 		map_frame(ptr_page_directory, frame, va, perm);
-		// free_frame(frame);
 	}
 	
 	uint32 old_break = kheap_break;
 	kheap_break = new_break;
 	void *PE = (void*)(old_break - sizeof(uint32));
-	// uint32 *end_block = (uint32*)(daStart + initSizeOfAllocatedSpace - sizeof(uint32));
 	uint32 *end_block = (uint32*)(kheap_break - sizeof(uint32));
 	*end_block = 1;
 
