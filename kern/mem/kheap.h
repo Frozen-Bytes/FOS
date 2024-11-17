@@ -42,6 +42,8 @@ int numOfKheapVACalls ;
 
 
 //TODO: [PROJECT'24.MS2 - #01] [1] KERNEL HEAP - add suitable code here
-
+uint32 kheap_start;
+uint32 kheap_break;
+uint32 kheap_limit;
 
 #endif // FOS_KERN_KHEAP_H_
