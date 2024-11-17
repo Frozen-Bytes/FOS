@@ -271,13 +271,23 @@ unsigned int kheap_physical_address(unsigned int virtual_address)
 unsigned int kheap_virtual_address(unsigned int physical_address)
 {
 	//TODO: [PROJECT'24.MS2 - #06] [1] KERNEL HEAP - kheap_virtual_address
-	// Write your code here, remove the panic and write your code
-	panic("kheap_virtual_address() is not implemented yet...!!");
-
 	//return the virtual address corresponding to given physical_address
-	//refer to the project presentation and documentation for details
-
 	//EFFICIENT IMPLEMENTATION ~O(1) IS REQUIRED ==================
+
+	struct FrameInfo *corresponding_frame = to_frame_info(physical_address);
+	uint32 mapped_page_virtual_address = corresponding_frame->mapped_page_virtual_address;
+
+	// In the initialize_frame_info function used while initializing paging,
+	// all values in the FrameInfo struct are initialized by 0
+	// so if the virtual address is still 0, then this frame hasn't been mapped
+	// and a kernel heap virtual address can never equal 0, 
+	// since kernel heap occupies part of the top 256 MBs of the virtual memory.
+	if(mapped_page_virtual_address == 0){
+		return 0;
+	} else {
+		uint32 offset = physical_address % PAGE_SIZE;
+		return (mapped_page_virtual_address << 12) | offset;
+	}
 }
 //=================================================================================//
 //============================== BONUS FUNCTION ===================================//
