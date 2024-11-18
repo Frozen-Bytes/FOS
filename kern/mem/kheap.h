@@ -49,15 +49,15 @@ uint32 kheap_start;
 uint32 kheap_break;
 uint32 kheap_limit;
 
-struct free_page_info {
+struct HeapBlock {
 	/* free list link */
-	LIST_ENTRY(free_page_info) prev_next_info;
-    uint32 block_sz;
-	uint32 starting_address;
+	LIST_ENTRY(HeapBlock) prev_next_info;
+
+    uint32 page_count;
+	uint32 start_va;
 };
 
-LIST_HEAD(Free_page_list, free_page_info);
-
-struct Free_page_list free_page_list;
+LIST_HEAD(HeapBlock_List, HeapBlock);
+struct HeapBlock_List free_blocks_list;
 
 #endif // FOS_KERN_KHEAP_H_

@@ -47,17 +47,17 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	kheap_break = daStart + initSizeToAllocate;
 	kheap_limit = daLimit;
 
-	LIST_INIT(&free_page_list);
+	LIST_INIT(&free_blocks_list);
 
     allocate_page(ACTUAL_START,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
 
-    struct free_page_info *first_blk =  (struct free_page_info *) ACTUAL_START;
+    struct HeapBlock *first_blk =  (struct HeapBlock *) ACTUAL_START;
 
-	first_blk->block_sz = (KERNEL_HEAP_MAX - ACTUAL_START) / PAGE_SIZE;
+	first_blk->page_count = (KERNEL_HEAP_MAX - ACTUAL_START) / PAGE_SIZE;
 
-	first_blk->starting_address = ACTUAL_START;
+	first_blk->start_va = ACTUAL_START;
 
-	LIST_INSERT_HEAD(&free_page_list,first_blk);
+	LIST_INSERT_HEAD(&free_blocks_list,first_blk);
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
@@ -128,35 +128,35 @@ void* sbrk(int numOfPages)
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
 
-void split_page(struct free_page_info * blk, uint32 size)
+void split_page(struct HeapBlock * blk, uint32 size)
 {
 
 	// |..........|..........|
-	uint32 rem_sz = blk->block_sz - size;
+	uint32 rem_sz = blk->page_count - size;
 
 	if (rem_sz == 0) {
-		LIST_REMOVE(&free_page_list , blk);
+		LIST_REMOVE(&free_blocks_list , blk);
 
-		unmap_frame(ptr_page_directory , blk ->starting_address);
+		unmap_frame(ptr_page_directory , blk ->start_va);
 
 		return;
 	}
 
-	uint32 new_address = blk->starting_address + (size * PAGE_SIZE);
+	uint32 new_address = blk->start_va + (size * PAGE_SIZE);
 
 	allocate_page(new_address , PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
 
-	struct free_page_info *new_page = (struct free_page_info *)new_address;
+	struct HeapBlock *new_page = (struct HeapBlock *)new_address;
 
-	new_page->block_sz = rem_sz;
+	new_page->page_count = rem_sz;
 
-	new_page->starting_address = new_address;
+	new_page->start_va = new_address;
 
-	LIST_INSERT_AFTER(&free_page_list , blk , new_page);
+	LIST_INSERT_AFTER(&free_blocks_list , blk , new_page);
 
-    LIST_REMOVE(&free_page_list , blk);
+    LIST_REMOVE(&free_blocks_list , blk);
 
-	unmap_frame(ptr_page_directory , blk ->starting_address);
+	unmap_frame(ptr_page_directory , blk ->start_va);
 }
 
 void* kmalloc(unsigned int size)
@@ -174,12 +174,12 @@ void* kmalloc(unsigned int size)
 		return ptr;
 	}
 
-	struct free_page_info * blk_start_ptr = NULL;
+	struct HeapBlock * blk_start_ptr = NULL;
 
 	// convert given size from bytes to pages
 	uint32 blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 
-	struct free_page_info *cur_blk = NULL;
+	struct HeapBlock *cur_blk = NULL;
 
 	if (LIST_SIZE(&MemFrameLists.free_frame_list) < blk_size_needed) {
 		release_spinlock(&MemFrameLists.mfllock);
@@ -192,8 +192,8 @@ void* kmalloc(unsigned int size)
 	// struct free_page_info *tmp = LIST_HEAD(&free_page_list);
 	// cprintf()
 
-	LIST_FOREACH(cur_blk , &free_page_list) {
-		if (cur_blk->block_sz >= blk_size_needed ) {
+	LIST_FOREACH(cur_blk , &free_blocks_list) {
+		if (cur_blk->page_count >= blk_size_needed ) {
           blk_start_ptr = cur_blk;
 
 		  break;
@@ -206,9 +206,9 @@ void* kmalloc(unsigned int size)
 		return NULL;
 	}
 
-    uint32 cur_page = blk_start_ptr->starting_address;
+    uint32 cur_page = blk_start_ptr->start_va;
 
-    uint32 start_page = blk_start_ptr->starting_address;
+    uint32 start_page = blk_start_ptr->start_va;
 
 	split_page(blk_start_ptr , blk_size_needed);
 
@@ -280,7 +280,7 @@ unsigned int kheap_virtual_address(unsigned int physical_address)
 	// In the initialize_frame_info function used while initializing paging,
 	// all values in the FrameInfo struct are initialized by 0
 	// so if the virtual address is still 0, then this frame hasn't been mapped
-	// and a kernel heap virtual address can never equal 0, 
+	// and a kernel heap virtual address can never equal 0,
 	// since kernel heap occupies part of the top 256 MBs of the virtual memory.
 	if(mapped_page_virtual_address == 0){
 		return 0;
