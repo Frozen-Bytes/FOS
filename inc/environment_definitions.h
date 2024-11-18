@@ -182,6 +182,10 @@ struct Env {
 	uint32 nPageIn, nPageOut, nNewPageAdded;
 	uint32 nClocks ;
 
+	// For user heap block allocator
+	uint32 uheap_start;
+	uint32 uheap_break;
+	uint32 uheap_limit;
 };
 
 #define PRIORITY_LOW    		1
