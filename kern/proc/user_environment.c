@@ -862,18 +862,25 @@ uint32 __cur_k_stk = KERNEL_HEAP_START;
 //===========================================================
 // 5) ALLOCATE SPACE FOR USER KERNEL STACK (One Per Process):
 //===========================================================
+//allocate space for the user kernel stack.
+//remember to leave its bottom page as a GUARD PAGE (i.e. not mapped)
+//return a pointer to the start of the allocated space (including the GUARD PAGE)
+//On failure: panic
 void* create_user_kern_stack(uint32* ptr_user_page_directory)
 {
 #if USE_KHEAP
 	//TODO: [PROJECT'24.MS2 - #07] [2] FAULT HANDLER I - create_user_kern_stack
 	// Write your code here, remove the panic and write your code
-	panic("create_user_kern_stack() is not implemented yet...!!");
-
-	//allocate space for the user kernel stack.
-	//remember to leave its bottom page as a GUARD PAGE (i.e. not mapped)
-	//return a pointer to the start of the allocated space (including the GUARD PAGE)
-	//On failure: panic
-
+	void *stack_base = kmalloc(KERNEL_STACK_SIZE);
+	if(stack_base == NULL){
+		panic("user_environment.c::create_user_kern_stack(), Failed to create user kernel stack");
+	}
+	uint32 guard_page = (uint32)stack_base;
+	uint32 *page_table = NULL;
+	if(get_page_table(ptr_user_page_directory, guard_page, &page_table) == TABLE_IN_MEMORY){
+		page_table[PTX(guard_page)] &= ~PERM_PRESENT;
+	}
+	return stack_base;
 
 #else
 	if (KERNEL_HEAP_MAX - __cur_k_stk < KERNEL_STACK_SIZE)
