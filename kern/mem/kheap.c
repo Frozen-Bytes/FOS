@@ -12,6 +12,7 @@
 static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 
 struct HeapBlock* to_heap_block(uint32 va);
+struct HeapBlock* split_heap_block(struct HeapBlock* blk, uint32 required_pages);
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
@@ -130,108 +131,72 @@ void* sbrk(int numOfPages)
 
 //TODO: [PROJECT'24.MS2 - BONUS#2] [1] KERNEL HEAP - Fast Page Allocator
 
-void split_page(struct HeapBlock * blk, uint32 size)
-{
-
-	// |..........|..........|
-	uint32 rem_sz = blk->page_count - size;
-
-	if (rem_sz == 0) {
-		LIST_REMOVE(&free_blocks_list , blk);
-
-		unmap_frame(ptr_page_directory , blk ->start_va);
-
-		return;
-	}
-
-	uint32 new_address = blk->start_va + (size * PAGE_SIZE);
-
-	allocate_page(new_address , PTE_KERN);
-
-	struct HeapBlock *new_page = (struct HeapBlock *)new_address;
-
-	new_page->page_count = rem_sz;
-
-	new_page->start_va = new_address;
-
-	LIST_INSERT_AFTER(&free_blocks_list , blk , new_page);
-
-    LIST_REMOVE(&free_blocks_list , blk);
-
-	unmap_frame(ptr_page_directory , blk ->start_va);
-}
-
 void* kmalloc(unsigned int size)
 {
 	//TODO: [PROJECT'24.MS2 - #03] [1] KERNEL HEAP - kmalloc
 	// Write your code here, remove the panic and write your code
 	// kpanic_into_prompt("kmalloc() is not implemented yet...!!");
-    acquire_spinlock(&MemFrameLists.mfllock);
-	// allocate by first-fit case
+
+	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
+
     if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
-		void *ptr = alloc_block_FF(size);
-
-		release_spinlock(&MemFrameLists.mfllock);
-
-		return ptr;
+		return alloc_block_FF(size);
 	}
 
-	struct HeapBlock * blk_start_ptr = NULL;
+	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
 
-	// convert given size from bytes to pages
-	uint32 blk_size_needed = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
-
-	struct HeapBlock *cur_blk = NULL;
-
-	if (LIST_SIZE(&MemFrameLists.free_frame_list) < blk_size_needed) {
-		release_spinlock(&MemFrameLists.mfllock);
-
-      	return NULL;
+	if (!is_holding_lock) {
+		acquire_spinlock(&MemFrameLists.mfllock);
 	}
 
-	// cprintf("PLEASE \n");
+	// Convert given size from bytes to pages
+	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+	struct HeapBlock* blk = NULL;
 
-	// struct free_page_info *tmp = LIST_HEAD(&free_page_list);
-	// cprintf()
+	LIST_FOREACH(blk , &free_blocks_list) {
+		if (blk->page_count >= required_pages) { break; }
+	}
 
-	LIST_FOREACH(cur_blk , &free_blocks_list) {
-		if (cur_blk->page_count >= blk_size_needed ) {
-          blk_start_ptr = cur_blk;
+	if (!blk) {
+		goto error_return;
+	}
 
-		  break;
+	int status = 0;
+	uint32 va = blk->start_va;
+	for (uint32 i = 0; i < required_pages; i++, va += PAGE_SIZE) {
+		status = allocate_page(va, PTE_KERN);
+		if (status != 0) {
+			break;
 		}
 	}
 
-	if (blk_start_ptr == NULL) {
+	// Allocation failed
+	if (status != 0) {
+		// Release allocated frames
+		for (uint32 allocated_va = blk->start_va; allocated_va < va; allocated_va += PAGE_SIZE) {
+			unmap_frame(ptr_page_directory, allocated_va);
+		}
+
+		goto error_return;
+	}
+
+	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
+	if (new_blk) {
+		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
+	}
+	LIST_REMOVE(&free_blocks_list, blk);
+
+	if (!is_holding_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
-
-		return NULL;
 	}
 
-    uint32 cur_page = blk_start_ptr->start_va;
+	return (void*)(blk->start_va);
 
-    uint32 start_page = blk_start_ptr->start_va;
-
-	split_page(blk_start_ptr , blk_size_needed);
-
-	// allocate pages from segment start.
-	allocate_page(cur_page, PTE_KERN);
-
-	cur_page += PAGE_SIZE;
-
-	blk_size_needed--;
-
-	while (blk_size_needed--) {
-		allocate_page(cur_page, PTE_KERN);
-
-		cur_page += PAGE_SIZE;
+error_return:
+	if (!is_holding_lock) {
+		release_spinlock(&MemFrameLists.mfllock);
 	}
-
-	release_spinlock(&MemFrameLists.mfllock);
-
-	return (void *)(start_page);
-
-	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
+	return NULL;
 }
 
 void kfree(void* virtual_address)
@@ -317,4 +282,24 @@ to_heap_block(uint32 va) {
 	assert(va && (va >= PAGE_ALLOCATOR_START));
 	uint32 offset = (va - PAGE_ALLOCATOR_START) / PAGE_SIZE;
 	return heap_blocks + offset;
+}
+
+struct HeapBlock*
+split_heap_block(struct HeapBlock* blk, uint32 required_pages)
+{
+	assert(blk);
+
+	uint32 page_surplus = blk->page_count - required_pages;
+	if (page_surplus == 0) {
+		return NULL;
+	}
+
+	uint32 next_block_va = blk->start_va + (required_pages * PAGE_SIZE);
+	struct HeapBlock* next_block = to_heap_block(next_block_va);
+	next_block->page_count = page_surplus;
+	next_block->start_va = next_block_va;
+
+	blk->page_count = required_pages;
+
+	return next_block;
 }
