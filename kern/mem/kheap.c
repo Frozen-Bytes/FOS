@@ -13,6 +13,8 @@ static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 
 struct HeapBlock* to_heap_block(uint32 va);
 struct HeapBlock* split_heap_block(struct HeapBlock* blk, uint32 required_pages);
+void insert_heap_block_sorted(struct HeapBlock* b);
+void coalescing_heap_block(struct HeapBlock* b);
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
@@ -207,11 +209,52 @@ void kfree(void* virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - #04] [1] KERNEL HEAP - kfree
 	// Write your code here, remove the panic and write your code
-	panic("kfree() is not implemented yet...!!");
+	// panic("kfree() is not implemented yet...!!");
 
 	//you need to get the size of the given allocation using its address
 	//refer to the project presentation and documentation for details
 
+	if (!virtual_address) {
+		return;
+	}
+
+	void* blk_allocator_brk = sbrk(0);
+	bool is_blk_addr = ((uint32) virtual_address >= kheap_start) &&
+	                   (virtual_address < blk_allocator_brk);
+	bool is_page_addr = ((uint32) virtual_address >= kheap_limit + PAGE_SIZE) &&
+				        ((uint32) virtual_address < KERNEL_HEAP_MAX);
+
+	if (is_blk_addr) {
+		free_block(virtual_address);
+	} else if (is_page_addr) {
+		acquire_spinlock(&MemFrameLists.mfllock);
+
+		// Not necessary, but makes sure that VA always starts on a page boundary
+		virtual_address = ROUNDDOWN(virtual_address, PAGE_SIZE);
+		struct HeapBlock* blk = to_heap_block((uint32) virtual_address);
+		uint32 alloc_sz = blk->page_count * PAGE_SIZE;
+
+		for (void* va = virtual_address; va < virtual_address + alloc_sz; va += PAGE_SIZE) {
+			uint32 pa = kheap_physical_address((uint32) va);
+			struct FrameInfo* frame_info = to_frame_info(pa);
+
+			if (!frame_info) {
+				panic("kfree(): trying to free an unallocated frame '%x' (frame #%d)",
+				      frame_info,
+				      to_frame_number(frame_info));
+			}
+
+			// Should invalidate cache
+			unmap_frame(ptr_page_directory, (uint32) va);
+		}
+
+		insert_heap_block_sorted(blk);
+		coalescing_heap_block(blk);
+
+		release_spinlock(&MemFrameLists.mfllock);
+	} else {
+		panic("kfree(): out of bounds VA '%x'", virtual_address);
+	}
 }
 
 unsigned int kheap_physical_address(unsigned int virtual_address)
@@ -306,4 +349,46 @@ split_heap_block(struct HeapBlock* blk, uint32 required_pages)
 	blk->page_count = required_pages;
 
 	return next_block;
+}
+
+void
+insert_heap_block_sorted(struct HeapBlock* b) {
+	assert(b);
+
+	if (LIST_EMPTY(&free_blocks_list)) {
+		LIST_INSERT_HEAD(&free_blocks_list, b);
+		return;
+	}
+
+	struct HeapBlock* blk = NULL;
+	LIST_FOREACH(blk, &free_blocks_list) {
+		if (blk->start_va > b->start_va) {
+			LIST_INSERT_BEFORE(&free_blocks_list, blk, b);
+			return;
+		}
+	}
+
+	LIST_INSERT_TAIL(&free_blocks_list, b);
+}
+
+void
+coalescing_heap_block(struct HeapBlock* b) {
+	assert(b);
+
+	struct HeapBlock* prev = LIST_PREV(b);
+	struct HeapBlock* next = LIST_NEXT(b);
+	bool is_prev_free = (prev && (prev->start_va + prev->page_count * PAGE_SIZE == b->start_va));
+	bool is_next_free = (next && (b->start_va + b->page_count * PAGE_SIZE == next->start_va));
+
+	if (is_prev_free && is_next_free) {
+		prev->page_count += b->page_count + next->page_count;
+		LIST_REMOVE(&free_blocks_list, b);
+		LIST_REMOVE(&free_blocks_list, next);
+	} else if (is_prev_free) {
+		prev->page_count += b->page_count;
+		LIST_REMOVE(&free_blocks_list, b);
+	} else if (is_next_free) {
+		b->page_count += next->page_count;
+		LIST_REMOVE(&free_blocks_list, next);
+	}
 }
