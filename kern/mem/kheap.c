@@ -20,14 +20,18 @@ struct HeapBlock* split_heap_block(struct HeapBlock* blk, uint32 required_pages)
 //Return:
 //	On success: 0
 //	Otherwise (if no memory OR initial size exceed the given limit): PANIC
-int allocate_page(uint32 va , uint32 perm)
+int allocate_page(uint32 va , uint32 perm, bool force)
 {
 	uint32 *page_table = NULL;
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
 
 	// Reallocating a page is illegal (i.e. very bad)
 	if (frame_info != NULL) {
-		panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
+		if (!force) {
+			panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
+		}
+
+		free_frame(frame_info);
 	}
 
 	int status = allocate_frame(&frame_info);
@@ -64,7 +68,7 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
-		int status = allocate_page(va, PTE_KERN);
+		int status = allocate_page(va, PTE_KERN, 1);
 		if (status == -1) {
 			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
 		}
@@ -164,7 +168,7 @@ void* kmalloc(unsigned int size)
 	int status = 0;
 	uint32 va = blk->start_va;
 	for (uint32 i = 0; i < required_pages; i++, va += PAGE_SIZE) {
-		status = allocate_page(va, PTE_KERN);
+		status = allocate_page(va, PTE_KERN, 0);
 		if (status != 0) {
 			break;
 		}
