@@ -4,7 +4,8 @@
 #include <inc/dynamic_allocator.h>
 #include "memory_manager.h"
 
-#define ACTUAL_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
+#define PAGE_ALLOCATOR_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
+#define PTE_KERN (PERM_PRESENT | PERM_USED | PERM_WRITEABLE)
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
@@ -49,19 +50,19 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 
 	LIST_INIT(&free_blocks_list);
 
-    allocate_page(ACTUAL_START,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+    allocate_page(PAGE_ALLOCATOR_START, PTE_KERN);
 
-    struct HeapBlock *first_blk =  (struct HeapBlock *) ACTUAL_START;
+    struct HeapBlock *first_blk =  (struct HeapBlock *) PAGE_ALLOCATOR_START;
 
-	first_blk->page_count = (KERNEL_HEAP_MAX - ACTUAL_START) / PAGE_SIZE;
+	first_blk->page_count = (KERNEL_HEAP_MAX - PAGE_ALLOCATOR_START) / PAGE_SIZE;
 
-	first_blk->start_va = ACTUAL_START;
+	first_blk->start_va = PAGE_ALLOCATOR_START;
 
 	LIST_INSERT_HEAD(&free_blocks_list,first_blk);
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
-		int status = allocate_page(va,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+		int status = allocate_page(va, PTE_KERN);
 		if (status == -1) {
 			panic("kheap.c::initialize_kheap_dynamic_allocator(), no enough memory for a page");
 		}
@@ -144,7 +145,7 @@ void split_page(struct HeapBlock * blk, uint32 size)
 
 	uint32 new_address = blk->start_va + (size * PAGE_SIZE);
 
-	allocate_page(new_address , PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+	allocate_page(new_address , PTE_KERN);
 
 	struct HeapBlock *new_page = (struct HeapBlock *)new_address;
 
@@ -213,14 +214,14 @@ void* kmalloc(unsigned int size)
 	split_page(blk_start_ptr , blk_size_needed);
 
 	// allocate pages from segment start.
-	allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+	allocate_page(cur_page, PTE_KERN);
 
 	cur_page += PAGE_SIZE;
 
 	blk_size_needed--;
 
 	while (blk_size_needed--) {
-		allocate_page(cur_page,PERM_PRESENT | PERM_USED | PERM_WRITEABLE);
+		allocate_page(cur_page, PTE_KERN);
 
 		cur_page += PAGE_SIZE;
 	}
