@@ -18,9 +18,9 @@ int allocate_page(uint32 va , uint32 perm)
 	uint32 *page_table = NULL;
 	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
 
-	// already allocated
+	// Reallocating a page is illegal (i.e. very bad)
 	if (frame_info != NULL) {
-		free_frame(frame_info);
+		panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
 	}
 
 	int status = allocate_frame(&frame_info);
@@ -29,11 +29,11 @@ int allocate_page(uint32 va , uint32 perm)
 	}
 
 	status = map_frame(ptr_page_directory, frame_info, va, perm);
-
 	if (status == E_NO_MEM) {
 		free_frame(frame_info);
 		return -1;
 	}
+
 	return 0;
 }
 
