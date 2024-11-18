@@ -2,10 +2,16 @@
 
 #include <inc/memlayout.h>
 #include <inc/dynamic_allocator.h>
+#include "inc/mmu.h"
 #include "memory_manager.h"
 
 #define PAGE_ALLOCATOR_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
 #define PTE_KERN (PERM_PRESENT | PERM_USED | PERM_WRITEABLE)
+#define NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES ((KERNEL_HEAP_MAX - PAGE_ALLOCATOR_START) / PAGE_SIZE)
+
+static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
+
+struct HeapBlock* to_heap_block(uint32 va);
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
@@ -48,17 +54,12 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	kheap_break = daStart + initSizeToAllocate;
 	kheap_limit = daLimit;
 
-	LIST_INIT(&free_blocks_list);
-
-    allocate_page(PAGE_ALLOCATOR_START, PTE_KERN);
-
-    struct HeapBlock *first_blk =  (struct HeapBlock *) PAGE_ALLOCATOR_START;
-
-	first_blk->page_count = (KERNEL_HEAP_MAX - PAGE_ALLOCATOR_START) / PAGE_SIZE;
-
+    struct HeapBlock *first_blk =  heap_blocks;
+	first_blk->page_count = NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES;
 	first_blk->start_va = PAGE_ALLOCATOR_START;
 
-	LIST_INSERT_HEAD(&free_blocks_list,first_blk);
+	LIST_INIT(&free_blocks_list);
+	LIST_INSERT_HEAD(&free_blocks_list, first_blk);
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
@@ -309,4 +310,11 @@ void *krealloc(void *virtual_address, uint32 new_size)
 	// Write your code here, remove the panic and write your code
 	return NULL;
 	panic("krealloc() is not implemented yet...!!");
+}
+
+struct HeapBlock*
+to_heap_block(uint32 va) {
+	assert(va && (va >= PAGE_ALLOCATOR_START));
+	uint32 offset = (va - PAGE_ALLOCATOR_START) / PAGE_SIZE;
+	return heap_blocks + offset;
 }
