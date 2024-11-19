@@ -230,7 +230,7 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 {
 #if USE_KHEAP
 		struct WorkingSetElement *victimWSElement = NULL;
-		uint32 wsSize = LIST_SIZE(&(faulted_env->page_WS_list));
+		uint32 wsSize = LIST_SIZE(&(faulted_env->page_WS_list)); // size of the page working LIST
 #else
 		int iWS =faulted_env->page_last_WS_index;
 		uint32 wsSize = env_page_ws_get_size(faulted_env);
@@ -240,10 +240,25 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 	{
 		//cprintf("PLACEMENT=========================WS Size = %d\n", wsSize );
 		//TODO: [PROJECT'24.MS2 - #09] [2] FAULT HANDLER I - Placement
-		// Write your code here, remove the panic and write your code
-		panic("page_fault_handler().PLACEMENT is not implemented yet...!!");
-
-		//refer to the project presentation and documentation for details
+		if(pf_read_env_page(faulted_env, (void*)ROUNDDOWN(fault_va, PAGE_SIZE)) == E_PAGE_NOT_EXIST_IN_PF){
+			if(!((fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX) || (fault_va >= USTACKBOTTOM && fault_va < USTACKTOP))){
+				cprintf("Invalid page access at address %x. Terminating environment %s\n",fault_va, faulted_env->prog_name);
+				env_exit();
+				return;
+			}
+		}
+		struct FrameInfo *new_frame = NULL;
+		allocate_frame(&new_frame);
+		if (new_frame == NULL){
+			panic("fault_handler.c::page_fault_handler(), Failed to allocate frame");
+		}
+		map_frame(faulted_env->env_page_directory, new_frame, ROUNDDOWN(fault_va, PAGE_SIZE), PERM_USER | PERM_WRITEABLE);
+		struct WorkingSetElement *new_element = env_page_ws_list_create_element(faulted_env, ROUNDDOWN(fault_va, PAGE_SIZE));
+		if (new_element == NULL){
+            panic("fault_handler.c::page_fault_handler(): Failed to create WS element!");
+        }
+		LIST_INSERT_TAIL(&(faulted_env->page_WS_list), new_element);
+        faulted_env->page_last_WS_element = new_element;
 	}
 	else
 	{
