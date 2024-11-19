@@ -207,15 +207,28 @@ void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 //=====================================
 void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
-	/*====================================*/
-	/*Remove this line before start coding*/
-//	inctst();
-//	return;
-	/*====================================*/
+	int page_cnt = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+
+	uint32 *cur_page_table = NULL;
+
+	for (uint32 cur_va = virtual_address ; page_cnt ; page_cnt-- , cur_va += PAGE_SIZE) {
+
+		int ret = get_page_table(e->env_page_directory , cur_va , &cur_page_table);
+		
+		// unmark pages
+		pt_set_page_permissions(e->env_page_directory , cur_va , 0 , PERM_USER_MARKED);
+
+		// free pages from page file
+		pf_remove_env_page(e, cur_va);
+
+		// free pages that only in the working set
+		env_page_ws_invalidate(e, cur_va);
+	}
+
+
 
 	//TODO: [PROJECT'24.MS2 - #15] [3] USER HEAP [KERNEL SIDE] - free_user_mem
-	// Write your code here, remove the panic and write your code
-	panic("free_user_mem() is not implemented yet...!!");
+	
 
 
 	//TODO: [PROJECT'24.MS2 - BONUS#3] [3] USER HEAP [KERNEL SIDE] - O(1) free_user_mem
