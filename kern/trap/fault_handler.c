@@ -242,7 +242,6 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 		//TODO: [PROJECT'24.MS2 - #09] [2] FAULT HANDLER I - Placement
 		if(pf_read_env_page(faulted_env, (void*)ROUNDDOWN(fault_va, PAGE_SIZE)) == E_PAGE_NOT_EXIST_IN_PF){
 			if(!((fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX) || (fault_va >= USTACKBOTTOM && fault_va < USTACKTOP))){
-				cprintf("Invalid page access at address %x. Terminating environment %s\n",fault_va, faulted_env->prog_name);
 				env_exit();
 				return;
 			}
