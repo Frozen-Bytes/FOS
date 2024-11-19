@@ -185,15 +185,21 @@ void* sys_sbrk(int numOfPages)
 //=====================================
 void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
-	/*====================================*/
-	/*Remove this line before start coding*/
-//	inctst();
-//	return;
-	/*====================================*/
+	uint32 needed_page_cnt = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE; // convert size into needed number of pages
 
-	//TODO: [PROJECT'24.MS2 - #13] [3] USER HEAP [KERNEL SIDE] - allocate_user_mem()
-	// Write your code here, remove the panic and write your code
-	panic("allocate_user_mem() is not implemented yet...!!");
+	uint32 *cur_page_table = NULL;
+
+	for (uint32 cur_va = virtual_address ; needed_page_cnt ; needed_page_cnt-- , cur_va += PAGE_SIZE) {
+
+		int ret = get_page_table(e->env_page_directory , cur_va , &cur_page_table);
+
+		if (ret == TABLE_NOT_EXIST) { // create table if it doesn't exist
+			create_page_table(e->env_page_directory , cur_va);
+		}
+
+		pt_set_page_permissions(e->env_page_directory , cur_va , PERM_USER_MARKED , 0); // set pages as marked
+	}
+	// panic("allocate_user_mem() is not implemented yet...!!");
 }
 
 //=====================================
