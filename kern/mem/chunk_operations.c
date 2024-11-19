@@ -120,6 +120,32 @@ uint32 calculate_required_frames(uint32* page_directory, uint32 sva, uint32 size
 //=====================================
 /* DYNAMIC ALLOCATOR SYSTEM CALLS */
 //=====================================
+void
+lazy_allocate_page(uint32 start_page , uint32 size , bool force)
+{
+    uint32 uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
+    struct Env* env = get_cpu_proc();
+
+	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE) {
+		uint32 *page_table = NULL;
+	    struct FrameInfo *frame_info = get_frame_info(env->env_page_directory, va, &page_table);
+		if(frame_info != NULL) {
+            if (!force) {
+			panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
+		   }
+		   continue;
+		} 
+		if(page_table == NULL) {
+			int status = create_page_table(env->env_page_directory, va);
+	        if (status == E_NO_MEM) {
+		        return -1;
+			}
+		}
+		pt_set_page_permissions(env->env_page_directory, va, PERM_USER_MARKED, 0);
+	}
+
+}
+
 void* sys_sbrk(int numOfPages)
 {
 	/* numOfPages > 0: move the segment break of the current user program to increase the size of its heap
@@ -130,7 +156,7 @@ void* sys_sbrk(int numOfPages)
 	 * NOTES:
 	 * 	1) As in real OS, allocate pages lazily. While sbrk moves the segment break, pages are not allocated
 	 * 		until the user program actually tries to access data in its heap (i.e. will be allocated via the fault handler).
-	 * 	2) Allocating additional pages for a process’ heap will fail if, for example, the free frames are exhausted
+	 * 	2) Allocating additional pages for a processï¿½ heap will fail if, for example, the free frames are exhausted
 	 * 		or the break exceed the limit of the dynamic allocator. If sys_sbrk fails, the net effect should
 	 * 		be that sys_sbrk returns (void*) -1 and that the segment break and the process heap are unaffected.
 	 * 		You might have to undo any operations you have done so far in this case.
@@ -139,10 +165,29 @@ void* sys_sbrk(int numOfPages)
 	//TODO: [PROJECT'24.MS2 - #11] [3] USER HEAP - sys_sbrk
 	/*====================================*/
 	/*Remove this line before start coding*/
-	return (void*)-1 ;
+	//return (void*)-1 ;
 	/*====================================*/
 	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
 
+    if(numOfPages == 0) {
+		return env.uheap_break;
+	}
+    
+	uint32 new_added_size = numOfPages * PAGE_SIZE;
+	uint32 new_break = env.uheap_break + new_added_size;
+	if(new_break > env.uheap_limit){
+		return (void*)-1;
+	}
+    
+	uint32 start_page = env.uheap_break;
+	lazy_allocate_page(start_page, new_added_size, 1);
+	env.uheap_break = new_break;
+
+	// update the END BLOCK
+	uint32 *end_block = (uint32*)(env.uheap_break - sizeof(uint32));
+	*end_block = 1;
+
+	return (void*)(start_page);
 
 }
 
