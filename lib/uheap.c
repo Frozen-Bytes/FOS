@@ -39,7 +39,20 @@ void free(void* virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - #14] [3] USER HEAP [USER SIDE] - free()
 	// Write your code here, remove the panic and write your code
-	panic("free() is not implemented yet...!!");
+	int inside_block_allocator = ((uint32) virtual_address >= myEnv->uheap_start) && 
+						((uint32) virtual_address < myEnv->uheap_limit);
+	
+	int inside_page_allocator = ((uint32) virtual_address >= myEnv->uheap_limit + PAGE_SIZE) &&
+	       			   ((uint32) virtual_address < USER_HEAP_MAX);
+
+	if (inside_block_allocator) {
+		free_block(virtual_address);
+	} else if (inside_page_allocator) {
+		
+		// sys_free_user_mem(virtual_address, size);
+	} else {
+		panic("uheap::free() called with an invalid address\n");
+	}
 }
 
 
