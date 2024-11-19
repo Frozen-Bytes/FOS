@@ -5,6 +5,8 @@
  *      Author: HP
  */
 
+#include "inc/memlayout.h"
+#include "inc/mmu.h"
 #include "trap.h"
 #include <kern/proc/user_environment.h>
 #include <kern/cpu/sched.h>
@@ -150,9 +152,13 @@ void fault_handler(struct Trapframe *tf)
 			/*============================================================================================*/
 			//TODO: [PROJECT'24.MS2 - #08] [2] FAULT HANDLER I - Check for invalid pointers
 			//(e.g. pointing to unmarked user heap page, kernel or wrong access rights),
+
+			int perms = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
 			
-			// IMPORTANT: need to add checking pointing to unmarked uheap page
-			// will be added after agreeing on marking mechanism
+			// If fault_va in user heap and not marked
+			if(fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX && !(perms & PERM_USER_MARKED)) {
+				env_exit();
+			}
 
 			// Making sure fault_va is not pointing in an illegal place (kernel)
 			// If poiting above USER_LIMIT then it's pointing in the kernel space
@@ -160,7 +166,6 @@ void fault_handler(struct Trapframe *tf)
 				env_exit();
 			}
 
-			int perms = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
 			// If not writeable and present then it means he is trying to write
 			// which leads to a violation of access rights so we exit process
 			if(!(perms & PERM_WRITEABLE) && (perms & PERM_PRESENT)) {
