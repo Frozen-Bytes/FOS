@@ -135,8 +135,20 @@ void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable)
 	//==============================================================
 	//TODO: [PROJECT'24.MS2 - #18] [4] SHARED MEMORY [USER SIDE] - smalloc()
 	// Write your code here, remove the panic and write your code
-	panic("smalloc() is not implemented yet...!!");
-	return NULL;
+	//panic("smalloc() is not implemented yet...!!");
+	struct Env* myenv = get_cpu_proc();
+    void * va = malloc(ROUNDUP(size,PAGE_SIZE));
+
+    if(va == NULL) {
+	    return NULL;
+	}
+
+	if(createSharedObject(myenv->env_id, sharedVarName, size, isWritable, va) < 0) {
+		free(va);
+	    return NULL;
+	}
+	
+	return va;
 }
 
 //========================================

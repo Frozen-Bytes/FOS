@@ -138,9 +138,13 @@ struct Share* get_share(int32 ownerID, char* name)
 {
 	//TODO: [PROJECT'24.MS2 - #17] [4] SHARED MEMORY - get_share()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("get_share is not implemented yet");
+	//panic("get_share is not implemented yet");
 	//Your Code is Here...
-
+    struct Share* object = NULL;
+	LIST_FOREACH(object , &AllShares.shares_list) {
+		if (object->ownerID == ownerID && object->name == name) { break; }
+	}
+	return object;
 }
 
 //=========================
