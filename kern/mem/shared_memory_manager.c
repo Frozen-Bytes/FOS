@@ -66,9 +66,21 @@ struct FrameInfo** create_frames_storage(int numOfFrames)
 {
 	//TODO: [PROJECT'24.MS2 - #16] [4] SHARED MEMORY - create_frames_storage()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("create_frames_storage is not implemented yet");
+	// panic("create_frames_storage is not implemented yet");
 	//Your Code is Here...
 
+	assert(numOfFrames >= 1);
+
+	uint32 storage_size = sizeof(void*) * numOfFrames;
+	struct FrameInfo** storage = kmalloc(storage_size);
+
+	if (!storage) {
+		return NULL;
+	}
+
+	memset(storage, 0, storage_size);
+
+	return storage;
 }
 
 //=====================================
@@ -81,9 +93,34 @@ struct Share* create_share(int32 ownerID, char* shareName, uint32 size, uint8 is
 {
 	//TODO: [PROJECT'24.MS2 - #16] [4] SHARED MEMORY - create_share()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("create_share is not implemented yet");
+	// panic("create_share is not implemented yet");
 	//Your Code is Here...
 
+	struct Share* share_obj = kmalloc(sizeof(struct Share));
+	if (!share_obj) {
+		return NULL;
+	}
+
+	memset(share_obj, 0 , sizeof(struct Share));
+
+	uint32 msb_mask = ~(1 << 31);
+	share_obj->ID = ((uint32) share_obj & msb_mask);
+
+	share_obj->ownerID = ownerID;
+	share_obj->size = size;
+	share_obj->references = 1;
+	share_obj->isWritable = isWritable;
+
+	uint32 num_of_frames = ROUNDUP(size, PAGE_SIZE) / PAGE_SIZE;
+	share_obj->framesStorage = create_frames_storage(num_of_frames);
+	if (!share_obj->framesStorage) {
+		kfree(share_obj);
+		return NULL;
+	}
+
+	strncpy(share_obj->name, shareName, sizeof(share_obj->name));
+
+	return share_obj;
 }
 
 //=============================
@@ -142,9 +179,18 @@ void free_share(struct Share* ptrShare)
 {
 	//TODO: [PROJECT'24.MS2 - BONUS#4] [4] SHARED MEMORY [KERNEL SIDE] - free_share()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("free_share is not implemented yet");
+	// panic("free_share is not implemented yet");
 	//Your Code is Here...
 
+	assert(ptrShare);
+
+	acquire_spinlock(&AllShares.shareslock);
+	// Should do nothing, if `ptrShare` is not in the list
+	LIST_REMOVE(&AllShares.shares_list, ptrShare);
+	release_spinlock(&AllShares.shareslock);
+
+	kfree(ptrShare->framesStorage);
+	kfree(ptrShare);
 }
 //========================
 // [B2] Free Share Object:
