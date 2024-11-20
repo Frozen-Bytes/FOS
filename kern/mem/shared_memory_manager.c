@@ -13,6 +13,10 @@
 #include "kheap.h"
 #include "memory_manager.h"
 
+struct FrameInfo* allocate_page(const struct Env* env, uint32 va , uint32 perm);
+
+void free_share(struct Share* ptrShare);
+
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -146,10 +150,53 @@ int createSharedObject(int32 ownerID, char* shareName, uint32 size, uint8 isWrit
 {
 	//TODO: [PROJECT'24.MS2 - #19] [4] SHARED MEMORY [KERNEL SIDE] - createSharedObject()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("createSharedObject is not implemented yet");
+	// panic("createSharedObject is not implemented yet");
 	//Your Code is Here...
 
-	struct Env* myenv = get_cpu_proc(); //The calling environment
+	struct Env* myenv = get_cpu_proc();
+
+	void *share_exist = get_share(ownerID, shareName);
+	if (share_exist) {
+		return E_SHARED_MEM_EXISTS;
+	}
+
+	struct Share* share_obj = create_share(ownerID, shareName, size, isWritable);
+	if (!share_obj) {
+		return E_NO_SHARE;
+	}
+
+	bool allocation_failed = 0;
+	uint32 number_of_frames = ROUNDUP(size, PAGE_SIZE) / PAGE_SIZE;
+	uint32 va = (uint32) virtual_address;
+	for (uint32 i = 0; i < number_of_frames; va += PAGE_SIZE, i++) {
+		// Should shared allocations have a "locked" permission to avoid page replacement?
+		uint32 pte_user =  PERM_PRESENT | PERM_WRITEABLE | PERM_USER;
+
+		struct FrameInfo* frame_info = allocate_page(myenv, va,pte_user);
+		if (!frame_info) {
+			allocation_failed = 1;
+			break;
+		}
+
+		share_obj->framesStorage[i] = frame_info;
+	}
+
+	if (allocation_failed) {
+		free_share(share_obj);
+
+		// Release allocated frames
+		for (uint32 v = (uint32) virtual_address; v < va; v += PAGE_SIZE) {
+			unmap_frame(myenv->env_page_directory, v);
+		}
+
+		return E_NO_SHARE;
+	}
+
+	acquire_spinlock(&AllShares.shareslock);
+	LIST_INSERT_TAIL(&AllShares.shares_list, share_obj);
+	release_spinlock(&AllShares.shareslock);
+
+	return share_obj->ID;
 }
 
 
@@ -202,4 +249,35 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 	panic("freeSharedObject is not implemented yet");
 	//Your Code is Here...
 
+}
+
+//Initialize the dynamic allocator of kernel heap with the given start address, size & limit
+//All pages in the given range should be allocated
+//Remember: call the initialize_dynamic_allocator(..) to complete the initialization
+//Return:
+//	On success: 0
+//	Otherwise (if no memory OR initial size exceed the given limit): PANIC
+struct FrameInfo*
+allocate_page(const struct Env* env, uint32 va , uint32 perm)
+{
+	uint32 *page_table = NULL;
+	struct FrameInfo *frame_info = get_frame_info(env->env_page_directory, va, &page_table);
+
+	// Reallocating a page is illegal (i.e. very bad)
+	if (frame_info != NULL) {
+		panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
+	}
+
+	int status = allocate_frame(&frame_info);
+	if (status == E_NO_MEM) {
+		return NULL;
+	}
+
+	status = map_frame(ptr_page_directory, frame_info, va, perm);
+	if (status == E_NO_MEM) {
+		free_frame(frame_info);
+		return NULL;
+	}
+
+	return frame_info;
 }
