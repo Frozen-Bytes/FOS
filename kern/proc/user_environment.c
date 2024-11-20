@@ -870,7 +870,6 @@ void* create_user_kern_stack(uint32* ptr_user_page_directory)
 {
 #if USE_KHEAP
 	//TODO: [PROJECT'24.MS2 - #07] [2] FAULT HANDLER I - create_user_kern_stack
-	// Write your code here, remove the panic and write your code
 	void *stack_base = kmalloc(KERNEL_STACK_SIZE);
 	if(stack_base == NULL){
 		panic("user_environment.c::create_user_kern_stack(), Failed to create user kernel stack");
