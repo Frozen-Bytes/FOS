@@ -29,7 +29,7 @@ NM			:= $(TOOLPREFIX)nm
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS	:= -O0 -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -fno-stack-protector -ggdb -g3
+CFLAGS	:= -O0 -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -fno-stack-protector -gstabs
 
 # Linker flags for FOS user programs
 ULDFLAGS := -T user/user.ld
