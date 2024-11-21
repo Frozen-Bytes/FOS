@@ -13,7 +13,7 @@
 #include "kheap.h"
 #include "memory_manager.h"
 
-struct FrameInfo* allocate_page(const struct Env* env, uint32 va , uint32 perm);
+static struct FrameInfo* allocate_page(const struct Env* env, uint32 va , uint32 perm);
 
 void free_share(struct Share* ptrShare);
 
@@ -261,7 +261,7 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 //Return:
 //	On success: 0
 //	Otherwise (if no memory OR initial size exceed the given limit): PANIC
-struct FrameInfo*
+static struct FrameInfo*
 allocate_page(const struct Env* env, uint32 va , uint32 perm)
 {
 	uint32 *page_table = NULL;
