@@ -391,7 +391,9 @@ int map_frame(uint32 *ptr_page_directory, struct FrameInfo *ptr_frame_info, uint
 			unmap_frame(ptr_page_directory , virtual_address);
 	}
 	ptr_frame_info->references++;
-
+	// Added to implement kheap_virtual_address.
+	ptr_frame_info->mapped_page_virtual_address = PPN(virtual_address);
+	
 	/*********************************************************************************/
 	/*NEW'23 el7:)
 	 * [DONE] map_frame(): KEEP THE VALUES OF THE AVAILABLE BITS*/
