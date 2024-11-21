@@ -10,6 +10,15 @@
 //2020
 #define UHP_USE_BUDDY 0
 
+#define UHEAP_PAGE_ALLOCATOR_START (USER_HEAP_START + (32 << 20) + PAGE_SIZE)
+#define NUM_OF_UHEAP_PAGE_ALLOCATOR_PAGES ((USER_HEAP_MAX - UHEAP_PAGE_ALLOCATOR_START) / PAGE_SIZE)
+
+struct UheapPageInfo
+{
+    uint32 size;
+    uint32 taken;
+};
+
 void *malloc(uint32 size);
 void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable);
 void* sget(int32 ownerEnvID, char *sharedVarName);
