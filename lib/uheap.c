@@ -27,11 +27,54 @@ void* malloc(uint32 size)
 	//==============================================================
 	//TODO: [PROJECT'24.MS2 - #12] [3] USER HEAP [USER SIDE] - malloc()
 	// Write your code here, remove the panic and write your code
-	panic("malloc() is not implemented yet...!!");
-	return NULL;
+	// panic("malloc() is not implemented yet...!!");
 	//Use sys_isUHeapPlacementStrategyFIRSTFIT() and	sys_isUHeapPlacementStrategyBESTFIT()
 	//to check the current strategy
 
+	if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
+		return alloc_block_FF(size);
+	}
+
+	// Page Allocator will be used
+	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
+
+	uint32 cnt = 0, first_page = -1, found = 0;
+	for (int i = 0 ; i < NUM_OF_UHEAP_PAGE_ALLOCATOR_PAGES ; i++) {
+		if (!uheap_pages_info[i].taken) {
+			cnt++;
+			if (first_page == -1) {
+				first_page = i;
+			}
+		} else {
+			cnt = 0;
+			first_page = -1;
+		}
+
+		if (cnt == required_pages) {
+			found = 1;
+			break;
+		}
+	}
+
+	// no valid space
+	if (!found) {
+		return NULL;
+	}
+
+	// mark the size in the first page
+	uheap_pages_info[first_page].size = required_pages;
+
+	// mark all pages in the range as taken
+	for (int i = first_page ; i < first_page + required_pages ; i++) {
+		uheap_pages_info[i].taken = 1;
+	}
+
+	// get the virtual size
+	void* va = (void*)(UHEAP_PAGE_ALLOCATOR_START + (PAGE_SIZE * first_page));
+
+	// invoke system call
+	sys_allocate_user_mem((uint32)va, size);
+	return va;
 }
 
 //=================================
