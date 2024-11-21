@@ -121,20 +121,13 @@ uint32 calculate_required_frames(uint32* page_directory, uint32 sva, uint32 size
 /* DYNAMIC ALLOCATOR SYSTEM CALLS */
 //=====================================
 void
-lazy_allocate_page(uint32 start_page , uint32 size , bool force)
+lazy_allocate_page(uint32 start_page , uint32 size , struct Env* env)
 {
     uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
-    struct Env* env = get_cpu_proc();
 
 	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE) {
 		uint32 *page_table = NULL;
 	    struct FrameInfo *frame_info = get_frame_info(env->env_page_directory, va, &page_table);
-		if(frame_info != NULL) {
-            if (!force) {
-			panic("allocate_page(): trying to allocate an already allocated page (va: %x)", va);
-		   }
-		   continue;
-		} 
 		if(page_table == NULL) {
 			create_page_table(env->env_page_directory, va);
 		}
@@ -176,7 +169,7 @@ void* sys_sbrk(int numOfPages)
 	}
     
 	uint32 start_page = env->uheap_break;
-	lazy_allocate_page(start_page, new_added_size, 1);
+	lazy_allocate_page(start_page, new_added_size, env);
 	env->uheap_break = new_break;
 
 	// update the END BLOCK
