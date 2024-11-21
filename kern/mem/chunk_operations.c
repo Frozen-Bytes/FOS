@@ -123,7 +123,7 @@ uint32 calculate_required_frames(uint32* page_directory, uint32 sva, uint32 size
 void
 lazy_allocate_page(uint32 start_page , uint32 size , bool force)
 {
-    uint32 uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
+    uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
     struct Env* env = get_cpu_proc();
 
 	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE) {
@@ -136,14 +136,10 @@ lazy_allocate_page(uint32 start_page , uint32 size , bool force)
 		   continue;
 		} 
 		if(page_table == NULL) {
-			int status = create_page_table(env->env_page_directory, va);
-	        if (status == E_NO_MEM) {
-		        return -1;
-			}
+			create_page_table(env->env_page_directory, va);
 		}
 		pt_set_page_permissions(env->env_page_directory, va, PERM_USER_MARKED, 0);
 	}
-
 }
 
 void* sys_sbrk(int numOfPages)
@@ -170,21 +166,21 @@ void* sys_sbrk(int numOfPages)
 	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
 
     if(numOfPages == 0) {
-		return env.uheap_break;
+		return (void*)env->uheap_break;
 	}
     
 	uint32 new_added_size = numOfPages * PAGE_SIZE;
-	uint32 new_break = env.uheap_break + new_added_size;
-	if(new_break > env.uheap_limit){
+	uint32 new_break = env->uheap_break + new_added_size;
+	if(new_break > env->uheap_limit){
 		return (void*)-1;
 	}
     
-	uint32 start_page = env.uheap_break;
+	uint32 start_page = env->uheap_break;
 	lazy_allocate_page(start_page, new_added_size, 1);
-	env.uheap_break = new_break;
+	env->uheap_break = new_break;
 
 	// update the END BLOCK
-	uint32 *end_block = (uint32*)(env.uheap_break - sizeof(uint32));
+	uint32 *end_block = (uint32*)(env->uheap_break - sizeof(uint32));
 	*end_block = 1;
 
 	return (void*)(start_page);
