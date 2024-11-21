@@ -212,7 +212,7 @@ handle_allocation(void *required_blk, uint32 required_size) {
 	// to start the allocation from the old END BLOCK
 	void *start_new_allocated_memory = (void*)((uint8*)sbrk(new_allocated_size / PAGE_SIZE) - sizeof(uint32));
     if (start_new_allocated_memory == (void*)-1) {
-		panic("no more space");
+		panic("kheap.c::sbrk(): Failed to allocate the requested memory size. Insufficient space or invalid size\n.");
         return NULL;
     } else {
 		struct BlockElement *new_free_block = (struct BlockElement*)((uint32*)start_new_allocated_memory + 1);

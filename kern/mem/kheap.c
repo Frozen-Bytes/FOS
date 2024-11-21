@@ -114,13 +114,13 @@ void* sbrk(int numOfPages)
 	}
 	uint32 new_added_size = numOfPages * PAGE_SIZE;
 	uint32 new_break = kheap_break + new_added_size;
-	if(new_break > kheap_limit || new_break < kheap_break){
+	if((new_break > kheap_limit) || (new_break < kheap_break) || (LIST_SIZE(&(MemFrameLists.free_frame_list)) == 0)){
 		return (void*)-1;
 	}
 	uint32 start_page = kheap_break;
 	uint32 end_page = ROUNDUP(new_break, PAGE_SIZE);
 	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE){
-		struct FrameInfo *frame;
+		struct FrameInfo *frame = NULL;
 		allocate_frame(&frame);
 		int perm = (PERM_PRESENT | PERM_WRITEABLE);
 		map_frame(ptr_page_directory, frame, va, perm);
