@@ -155,11 +155,15 @@ void fault_handler(struct Trapframe *tf)
 
 			int perms = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
 			
+			bool in_user_heap = ((fault_va >= USER_HEAP_START) &&
+	        							 (fault_va < USER_HEAP_MAX));
+			bool is_marked = (perms & PERM_USER_MARKED);
+
 			// If fault_va in user heap and not marked
-			if(fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX && !(perms & PERM_USER_MARKED)) {
+			if(in_user_heap && !is_marked) {
 				env_exit();
 			}
-
+			
 			// Making sure fault_va is not pointing in an illegal place (kernel)
 			// If poiting above USER_LIMIT then it's pointing in the kernel space
 			if(fault_va >= USER_LIMIT) {
