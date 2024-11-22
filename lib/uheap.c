@@ -62,7 +62,7 @@ void* malloc(uint32 size)
 	}
 
 	// mark the size in the first page
-	uheap_pages_info[first_page].size = required_pages;
+	uheap_pages_info[first_page].size = size;
 
 	// mark all pages in the range as taken
 	for (int i = first_page ; i < first_page + required_pages ; i++) {
@@ -84,20 +84,40 @@ void free(void* virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - #14] [3] USER HEAP [USER SIDE] - free()
 	// Write your code here, remove the panic and write your code
-	int inside_block_allocator = ((uint32) virtual_address >= myEnv->uheap_start) && 
-						((uint32) virtual_address < myEnv->uheap_limit);
+	// panic("free() is not implemented yet...!!");
+	if (!virtual_address) {
+		return;
+	}
+
+	uint32 hard_limit = myEnv->uheap_limit;
+
+	bool inside_block_allocator = ((uint32)virtual_address >= USER_HEAP_START) &&
+								  ((uint32)virtual_address < hard_limit);
 	
-	int inside_page_allocator = ((uint32) virtual_address >= myEnv->uheap_limit + PAGE_SIZE) &&
-	       			   ((uint32) virtual_address < USER_HEAP_MAX);
+	bool insid_page_allocator = ((uint32)virtual_address >= hard_limit + PAGE_SIZE) &&
+								((uint32)virtual_address < USER_HEAP_MAX);
 
 	if (inside_block_allocator) {
 		free_block(virtual_address);
-	} else if (inside_page_allocator) {
-		
-		// sys_free_user_mem(virtual_address, size);
+		return;
+	} else if(insid_page_allocator) {
+
+		virtual_address = ROUNDDOWN(virtual_address, PAGE_SIZE);
+
+		uint32 page_idx = (ROUNDUP((uint32)virtual_address - UHEAP_PAGE_ALLOCATOR_START, PAGE_SIZE)) / PAGE_SIZE;
+
+		uint32 allocated_size = uheap_pages_info[page_idx].size;
+		uint32 page_count = ROUNDUP(allocated_size, PAGE_SIZE) / PAGE_SIZE;
+		for (int i = page_idx ; i < page_idx + page_count ; i++) {
+			uheap_pages_info[i].size = 0;
+			uheap_pages_info[i].taken = 0;
+		}
+		sys_free_user_mem((uint32)virtual_address, allocated_size);
+
 	} else {
-		panic("uheap::free() called with an invalid address\n");
+		panic("uheap.c::free(), attempt to free invalid address %p\n", virtual_address);
 	}
+
 }
 
 
