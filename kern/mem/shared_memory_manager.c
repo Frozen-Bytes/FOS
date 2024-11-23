@@ -122,7 +122,13 @@ struct Share* create_share(int32 ownerID, char* shareName, uint32 size, uint8 is
 		return NULL;
 	}
 
-	strncpy(share_obj->name, shareName, sizeof(share_obj->name));
+	// NOTE: ALWAYS USE `share_obj->name` WITH `sizeof` OPERATOR!!!
+	// BE WARNED VERY VERY BAD THING COULD AND WILL HAPPEN!!!
+	uint32 name_buffer_len = sizeof(share_obj->name) / sizeof(*share_obj->name);
+	strncpy(share_obj->name, shareName, name_buffer_len);
+
+	// Make sure the string is always null terminated, OR BAD THINGS WILL HAPPEN!!!
+	share_obj->name[name_buffer_len - 1] = '\0';
 
 	return share_obj;
 }
