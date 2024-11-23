@@ -96,7 +96,7 @@ void free(void* virtual_address)
 
 	bool inside_block_allocator = ((uint32)virtual_address >= USER_HEAP_START) &&
 								  ((uint32)virtual_address < hard_limit);
-	
+
 	bool insid_page_allocator = ((uint32)virtual_address >= hard_limit + PAGE_SIZE) &&
 								((uint32)virtual_address < USER_HEAP_MAX);
 
@@ -114,6 +114,7 @@ void free(void* virtual_address)
 		for (int i = page_idx ; i < page_idx + page_count ; i++) {
 			uheap_pages_info[i].size = 0;
 			uheap_pages_info[i].taken = 0;
+			uheap_pages_info[i].shared_obj_id = 0;
 		}
 		sys_free_user_mem((uint32)virtual_address, allocated_size);
 
@@ -141,11 +142,14 @@ void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable)
 	    return NULL;
 	}
 
-	if(sys_createSharedObject(sharedVarName, size, isWritable, va) < 0) {
+	int32 id = sys_createSharedObject(sharedVarName, size, isWritable, va);
+	if(id < 0) {
 		free(va);
 	    return NULL;
 	}
-	
+	uint32 page_idx = (ROUNDUP((uint32)va - UHEAP_PAGE_ALLOCATOR_START, PAGE_SIZE)) / PAGE_SIZE;
+	uheap_pages_info[page_idx].shared_obj_id = id;
+
 	return va;
 }
 
@@ -180,7 +184,17 @@ void sfree(void* virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - BONUS#4] [4] SHARED MEMORY [USER SIDE] - sfree()
 	// Write your code here, remove the panic and write your code
-	panic("sfree() is not implemented yet...!!");
+	// panic("sfree() is not implemented yet...!!");
+
+	if (!virtual_address) {
+		return;
+	}
+
+	uint32 page_idx = (ROUNDUP((uint32) virtual_address - UHEAP_PAGE_ALLOCATOR_START, PAGE_SIZE)) / PAGE_SIZE;
+	uint32 id = uheap_pages_info[page_idx].shared_obj_id;
+
+	free(virtual_address);
+	sys_freeSharedObject(id, virtual_address);
 }
 
 

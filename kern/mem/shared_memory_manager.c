@@ -256,9 +256,44 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 {
 	//TODO: [PROJECT'24.MS2 - BONUS#4] [4] SHARED MEMORY [KERNEL SIDE] - freeSharedObject()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("freeSharedObject is not implemented yet");
+	// panic("freeSharedObject is not implemented yet");
 	//Your Code is Here...
+	struct Share* share_obj = NULL;
 
+	acquire_spinlock(&AllShares.shareslock);
+	LIST_FOREACH(share_obj, &AllShares.shares_list) {
+		if (share_obj->ID == sharedObjectID) { break; }
+	}
+	release_spinlock(&AllShares.shareslock);
+
+	cprintf("id: %d, startVA: %x, found: %x\n", sharedObjectID, startVA, share_obj != NULL);
+	if (!share_obj) {
+		return -1;
+	}
+
+	struct Env* myenv = get_cpu_proc();
+	uint32 start_va = ROUNDDOWN((uint32) startVA, PAGE_SIZE);
+	uint32 end_va = start_va + ROUNDUP(share_obj->size, PAGE_SIZE);
+	for (uint32 va = start_va; va < end_va; va += PAGE_SIZE) {
+		uint32* page_table = NULL;
+		get_page_table(myenv->env_page_directory, va, &page_table);
+
+		// Help me please!
+		unmap_frame(myenv->env_page_directory, va);
+		if (!pd_is_table_used(myenv->env_page_directory, va)) {
+			pd_clear_page_dir_entry(myenv->env_page_directory, va);
+			kfree(page_table);
+		}
+	}
+
+	share_obj->references--;
+	if (share_obj->references == 0) {
+		free_share(share_obj);
+	}
+
+	tlbflush();
+
+	return 0;
 }
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit

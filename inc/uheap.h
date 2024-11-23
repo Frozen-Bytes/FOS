@@ -17,6 +17,7 @@ struct UheapPageInfo
 {
     uint32 size;
     uint32 taken;
+    int32 shared_obj_id;
 };
 
 void *malloc(uint32 size);
