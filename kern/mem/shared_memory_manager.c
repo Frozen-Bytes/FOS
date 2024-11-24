@@ -107,8 +107,8 @@ struct Share* create_share(int32 ownerID, char* shareName, uint32 size, uint8 is
 
 	memset(share_obj, 0 , sizeof(struct Share));
 
-	uint32 msb_mask = ~(1 << 31);
-	share_obj->ID = ((uint32) share_obj & msb_mask);
+	// uint32 msb_mask = ~(1 << 31);
+	share_obj->ID = ((uint32) share_obj & (~(1 << 31))); // msb masking
 
 	share_obj->ownerID = ownerID;
 	share_obj->size = size;
@@ -148,7 +148,7 @@ struct Share* get_share(int32 ownerID, char* name)
 	//Your Code is Here...
     struct Share* object = NULL;
 	LIST_FOREACH(object , &AllShares.shares_list) {
-		if (object->ownerID == ownerID && object->name == name) { break; }
+		if (object->ownerID == ownerID && strcmp(object->name, name) == 0) { break; }
 	}
 	return object;
 }
@@ -175,12 +175,12 @@ int createSharedObject(int32 ownerID, char* shareName, uint32 size, uint8 isWrit
 		return E_NO_SHARE;
 	}
 
-	bool allocation_failed = 0;
+	uint8 allocation_failed = 0;
+	uint32 pte_user = PERM_PRESENT | PERM_WRITEABLE | PERM_USER;
 	uint32 number_of_frames = ROUNDUP(size, PAGE_SIZE) / PAGE_SIZE;
 	uint32 va = (uint32) virtual_address;
 	for (uint32 i = 0; i < number_of_frames; va += PAGE_SIZE, i++) {
 		// Should shared allocations have a "locked" permission to avoid page replacement?
-		uint32 pte_user =  PERM_PRESENT | PERM_WRITEABLE | PERM_USER;
 
 		struct FrameInfo* frame_info = allocate_page(myenv, va,pte_user);
 		if (!frame_info) {
@@ -213,14 +213,41 @@ int createSharedObject(int32 ownerID, char* shareName, uint32 size, uint8 isWrit
 //======================
 // [5] Get Share Object:
 //======================
+/*
+Get the shared object from the "shares_list" done
+Get its physical frames from the “frames_storage” done
+Share these frames with the current process starting from the given "virtual_address" done
+Use the flag isWritable to make the sharing either read-only OR writable done
+Update references done gamed
+RETURN:
+	ID of the shared object (its VA after masking out its msb) if success
+	E_SHARED_MEM_NOT_EXISTS if the shared object is NOT exists
+
+
+*/
 int getSharedObject(int32 ownerID, char* shareName, void* virtual_address)
 {
 	//TODO: [PROJECT'24.MS2 - #21] [4] SHARED MEMORY [KERNEL SIDE] - getSharedObject()
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	panic("getSharedObject is not implemented yet");
-	//Your Code is Here...
-
+	// panic("getSharedObject is not implemented yet");
 	struct Env* myenv = get_cpu_proc(); //The calling environment
+	struct Share *shared_obj = get_share(ownerID, shareName);
+	if(!shared_obj){
+		return E_SHARED_MEM_NOT_EXISTS;
+	}
+	uint32 number_of_frames = ROUNDUP(shared_obj->size, PAGE_SIZE) / PAGE_SIZE;
+
+	for (uint32 i = 0; i < number_of_frames; virtual_address += PAGE_SIZE, i++){
+		struct FrameInfo* frame = shared_obj->framesStorage[i];
+		if(!frame){
+			panic("how the fucke ???");
+		}
+		map_frame(myenv->env_page_directory, frame, (uint32)virtual_address, (shared_obj->isWritable ? PERM_WRITEABLE : 0));
+	}
+	
+	shared_obj->references++;
+
+	return shared_obj->ID;
 }
 
 //==================================================================================//
@@ -285,7 +312,7 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 			kfree(page_table);
 		}
 	}
-
+	// should we use locks here ?!?!??!?!??!?!?!??!?!?!??!?!?!?!?!??!?!?!?!??!?!?!??!?!
 	share_obj->references--;
 	if (share_obj->references == 0) {
 		free_share(share_obj);
