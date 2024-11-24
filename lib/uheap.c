@@ -39,15 +39,20 @@ void* malloc(uint32 size)
 	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 
 	uint32 cnt = 0, first_page = -1, found = 0;
-	for (int i = 0 ; i < NUM_OF_UHEAP_PAGE_ALLOCATOR_PAGES ; i++) {
+	for (int i = 0 ; i < NUM_OF_UHEAP_PAGE_ALLOCATOR_PAGES ;) {
 		if (!uheap_pages_info[i].taken) {
 			cnt++;
 			if (first_page == -1) {
 				first_page = i;
 			}
+			i++;
 		} else {
 			cnt = 0;
 			first_page = -1;
+
+			// skip allocated pages
+			uint32 page_count = ROUNDUP(uheap_pages_info[i].size, PAGE_SIZE) / PAGE_SIZE;
+			i += page_count;
 		}
 
 		if (cnt == required_pages) {
@@ -61,11 +66,9 @@ void* malloc(uint32 size)
 		return NULL;
 	}
 
-	// mark the size in the first page
-	uheap_pages_info[first_page].size = size;
-
 	// mark all pages in the range as taken
 	for (int i = first_page ; i < first_page + required_pages ; i++) {
+		uheap_pages_info[i].size = size;
 		uheap_pages_info[i].taken = 1;
 	}
 
