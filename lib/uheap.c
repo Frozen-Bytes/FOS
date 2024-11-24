@@ -156,12 +156,46 @@ void* smalloc(char *sharedVarName, uint32 size, uint8 isWritable)
 //========================================
 // [5] SHARE ON ALLOCATED SHARED VARIABLE:
 //========================================
+/*
+
+
+Get the size of the shared variable (use sys_getSizeOfSharedObject())
+If not exists, return NULL
+Apply FIRST FIT strategy to search the heap for suitable space (on 4 KB BOUNDARY)
+if no suitable space found, return NULL
+Call sys_getSharedObject(...) to invoke the Kernel for sharing this variable
+RETURN:
+If successful, return its virtual address
+Else, return NULL
+Testing:
+FOS> run tshr2 3000 	 smalloc & sget
+FOS> run tff3 3000 		 First Fit (smalloc, sget, malloc & free)
+
+
+
+*/
 void* sget(int32 ownerEnvID, char *sharedVarName)
 {
 	//TODO: [PROJECT'24.MS2 - #20] [4] SHARED MEMORY [USER SIDE] - sget()
 	// Write your code here, remove the panic and write your code
-	panic("sget() is not implemented yet...!!");
-	return NULL;
+	// panic("sget() is not implemented yet...!!");
+	uint32 shared_obj_size = sys_getSizeOfSharedObject(ownerEnvID, sharedVarName);
+	if(shared_obj_size == E_SHARED_MEM_NOT_EXISTS){
+		return NULL;
+	}
+	void * va = malloc(ROUNDUP(shared_obj_size,PAGE_SIZE));
+    if(!va) {
+	    return NULL;
+	}
+	int id = sys_getSharedObject(ownerEnvID, sharedVarName, va);
+	if(id == E_SHARED_MEM_NOT_EXISTS){
+		free(va);
+		return NULL;
+	}
+	uint32 page_idx = (ROUNDUP((uint32)va - UHEAP_PAGE_ALLOCATOR_START, PAGE_SIZE)) / PAGE_SIZE;
+	uheap_pages_info[page_idx].shared_obj_id = id;
+
+	return va;
 }
 
 
