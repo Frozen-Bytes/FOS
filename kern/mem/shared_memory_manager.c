@@ -242,7 +242,9 @@ int getSharedObject(int32 ownerID, char* shareName, void* virtual_address)
 		if(!frame){
 			panic("how the fucke ???");
 		}
-		map_frame(myenv->env_page_directory, frame, (uint32)virtual_address, (shared_obj->isWritable ? PERM_WRITEABLE : 0));
+
+		uint32 perm = PERM_USER | (shared_obj->isWritable ? PERM_WRITEABLE : 0);
+		map_frame(myenv->env_page_directory, frame, (uint32)virtual_address, perm);
 	}
 	
 	shared_obj->references++;
