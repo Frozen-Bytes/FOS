@@ -347,7 +347,7 @@ allocate_page(const struct Env* env, uint32 va , uint32 perm)
 		return NULL;
 	}
 
-	status = map_frame(ptr_page_directory, frame_info, va, perm);
+	status = map_frame(env->env_page_directory, frame_info, va, perm);
 	if (status == E_NO_MEM) {
 		free_frame(frame_info);
 		return NULL;
