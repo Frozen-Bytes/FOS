@@ -214,6 +214,9 @@ void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 	for (uint32 cur_va = virtual_address ; page_cnt ; page_cnt-- , cur_va += PAGE_SIZE) {
 
 		int ret = get_page_table(e->env_page_directory , cur_va , &cur_page_table);
+		if (ret == TABLE_NOT_EXIST) {
+			continue;
+		}
 		
 		// unmark pages
 		pt_set_page_permissions(e->env_page_directory , cur_va , 0 , PERM_USER_MARKED);
