@@ -10,10 +10,13 @@
 
 #include <kern/proc/user_environment.h>
 #include <kern/trap/syscall.h>
+#include "inc/types.h"
+#include "kern/conc/spinlock.h"
 #include "kheap.h"
 #include "memory_manager.h"
 
 static struct FrameInfo* allocate_page(const struct Env* env, uint32 va , uint32 perm);
+static bool pt_is_page_empty(uint32* page_dir, uint32 va);
 
 void free_share(struct Share* ptrShare);
 
@@ -246,7 +249,7 @@ int getSharedObject(int32 ownerID, char* shareName, void* virtual_address)
 		uint32 perm = PERM_USER | (shared_obj->isWritable ? PERM_WRITEABLE : 0);
 		map_frame(myenv->env_page_directory, frame, (uint32)virtual_address, perm);
 	}
-	
+
 	shared_obj->references++;
 
 	return shared_obj->ID;
@@ -295,7 +298,6 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 	}
 	release_spinlock(&AllShares.shareslock);
 
-	cprintf("id: %d, startVA: %x, found: %x\n", sharedObjectID, startVA, share_obj != NULL);
 	if (!share_obj) {
 		return -1;
 	}
@@ -307,9 +309,8 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 		uint32* page_table = NULL;
 		get_page_table(myenv->env_page_directory, va, &page_table);
 
-		// Help me please!
 		unmap_frame(myenv->env_page_directory, va);
-		if (!pd_is_table_used(myenv->env_page_directory, va)) {
+		if (pt_is_page_empty(myenv->env_page_directory, va)) {
 			pd_clear_page_dir_entry(myenv->env_page_directory, va);
 			kfree(page_table);
 		}
@@ -354,4 +355,23 @@ allocate_page(const struct Env* env, uint32 va , uint32 perm)
 	}
 
 	return frame_info;
+}
+
+static bool
+pt_is_page_empty(uint32* page_dir, uint32 va) {
+	uint32* page_table = NULL;
+	get_page_table(page_dir, va, &page_table);
+	if (!page_table) {
+		return 1;
+	}
+
+	uint32* end_va = (void*) page_table + PAGE_SIZE;
+	for (uint32* va = page_table; va < end_va; va++) {
+		int32 perm = *va;
+		if ((perm & PERM_PRESENT) || (perm & PERM_USER_MARKED)) {
+			return 0;
+		}
+	}
+
+	return 1;
 }
