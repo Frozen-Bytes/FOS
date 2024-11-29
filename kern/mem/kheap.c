@@ -304,7 +304,7 @@ void *krealloc(void *virtual_address, uint32 new_size)
 	//return NULL;
 	//panic("krealloc() is not implemented yet...!!");
 	if (virtual_address == NULL) {
-		return kmalloc(new_size);
+		return (new_size != 0) ? kmalloc(new_size) : NULL;
 	}
 
 	if (new_size == 0) {
