@@ -146,14 +146,25 @@ struct Share* create_share(int32 ownerID, char* shareName, uint32 size, uint8 is
 struct Share* get_share(int32 ownerID, char* name)
 {
 	//TODO: [PROJECT'24.MS2 - #17] [4] SHARED MEMORY - get_share()
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	//panic("get_share is not implemented yet");
-	//Your Code is Here...
+	acquire_spinlock(&AllShares.shareslock);
+
     struct Share* object = NULL;
+	bool found = 0;
 	LIST_FOREACH(object , &AllShares.shares_list) {
-		if (object->ownerID == ownerID && strcmp(object->name, name) == 0) { break; }
+		if (object->ownerID == ownerID && strcmp(object->name, name) == 0) {
+			found = 1;
+			break; 
+		}
 	}
-	return object;
+
+	release_spinlock(&AllShares.shareslock);
+
+	if (found == 1) {
+		return object;
+	}
+	else {
+		return NULL;
+	}
 }
 
 //=========================
