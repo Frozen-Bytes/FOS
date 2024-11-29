@@ -13,8 +13,12 @@ static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 
 struct HeapBlock* to_heap_block(uint32 va);
 struct HeapBlock* split_heap_block(struct HeapBlock* blk, uint32 required_pages);
+void* kexpand_block(uint32 va, uint32 required_pages);
+void Remap_frames(uint32 va, uint32 new_va, uint32 size);
+void* kmap_frames(struct HeapBlock* blk, uint32 required_pages);
 void insert_heap_block_sorted(struct HeapBlock* b);
 void coalescing_heap_block(struct HeapBlock* b);
+uint32 get_allocation_size(uint32 va);
 
 //Initialize the dynamic allocator of kernel heap with the given start address, size & limit
 //All pages in the given range should be allocated
@@ -167,39 +171,15 @@ void* kmalloc(unsigned int size)
 		goto error_return;
 	}
 
-	int status = 0;
-	uint32 va = blk->start_va;
-	for (uint32 i = 0; i < required_pages; i++, va += PAGE_SIZE) {
-		status = allocate_page(va, PTE_KERN, 0);
-		if (status != 0) {
-			break;
-		}
-	}
+	void* ret = kmap_frames(blk, required_pages);
 
-	// Allocation failed
-	if (status != 0) {
-		// Release allocated frames
-		for (uint32 allocated_va = blk->start_va; allocated_va < va; allocated_va += PAGE_SIZE) {
-			unmap_frame(ptr_page_directory, allocated_va);
-		}
-
-		goto error_return;
-	}
-
-	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
-	if (new_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
-	}
-	LIST_REMOVE(&free_blocks_list, blk);
-
-	if (!is_holding_lock) {
+    if (!is_holding_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
-
-	return (void*)(blk->start_va);
+	return ret;
 
 error_return:
-	if (!is_holding_lock) {
+   	 if (!is_holding_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
 	return NULL;
@@ -316,138 +296,6 @@ unsigned int kheap_virtual_address(unsigned int physical_address)
 //	A call with virtual_address = null is equivalent to kmalloc().
 //	A call with new_size = zero is equivalent to kfree().
 
-/*
-	kmalloc_with_krealloc description:
-	this function use kalloc technique to realloc new place but with transfer
-    old data and handle case that there is enough frames to realloc but not
-    to allocate first then realloc the new place.
-*/
-void *
-kmalloc_with_krealloc(uint32 virtual_address, uint32 size){
-	uint32 old_size = 0;
-	bool is_page_addr = ((uint32) virtual_address >= kheap_limit + PAGE_SIZE) &&
-				        ((uint32) virtual_address < KERNEL_HEAP_MAX);
-						
-   // get the size of block
-	if(is_page_addr) {
-		struct HeapBlock* blk = to_heap_block((uint32) virtual_address);
-		old_size = blk->page_count;
-	} else {
-		panic("kmalloc_with_krealloc(): out of bounds VA '%x'", virtual_address);
-		return NULL;
-	}
-
-	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
-
-	if (!is_holding_lock) {
-		acquire_spinlock(&MemFrameLists.mfllock);
-	}
-
-	// Convert given size from bytes to pages
-	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
-	struct HeapBlock* blk = NULL;
-
-	LIST_FOREACH(blk , &free_blocks_list) {
-		if (blk->page_count >= required_pages) { break; }
-	}
-
-	if (!blk) {
-		goto error_return;
-	}
-
-	int status = 0;
-	uint32 va = blk->start_va;
-	for (uint32 i = 0; i < required_pages; i++, va += PAGE_SIZE,virtual_address += PAGE_SIZE) {
-		if(i < old_size){
-			uint32 *page_table = NULL;
-			uint32 perm = pt_get_page_permissions(ptr_page_directory, virtual_address);
-	        struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
-			if(frame_info == NULL){
-				panic("kmalloc_with_krealloc(): not allocated VA '%x'", virtual_address);
-			}
-			map_frame(ptr_page_directory, frame_info, va, perm);
-			continue;
-		}
-		status = allocate_page(va, PTE_KERN, 0);
-		if (status != 0) {
-			break;
-		}
-	}
-
-	// Allocation failed
-	if (status != 0) {
-		// Release allocated frames
-		for (uint32 allocated_va = blk->start_va; allocated_va < va; allocated_va += PAGE_SIZE) {
-			unmap_frame(ptr_page_directory, allocated_va);
-		}
-
-		goto error_return;
-	}
-
-	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
-	if (new_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
-	}
-	LIST_REMOVE(&free_blocks_list, blk);
-
-	if (!is_holding_lock) {
-		release_spinlock(&MemFrameLists.mfllock);
-	}
-
-	return (void*)(blk->start_va);
-
-error_return:
-	if (!is_holding_lock) {
-		release_spinlock(&MemFrameLists.mfllock);
-	}
-	return NULL;
-}
-
-void*
-kexpand_block(uint32 va, uint32 new_size)
-{
-	uint32 old_size = 0;
-    bool is_page_addr = ((uint32) va >= kheap_limit + PAGE_SIZE) &&
-				        ((uint32) va < KERNEL_HEAP_MAX);
-						
-   // get the size of block
-	if(is_page_addr) {
-		struct HeapBlock* blk = to_heap_block((uint32) va);
-		old_size = blk->page_count * PAGE_SIZE;
-	} else {
-		panic("kexpand_block(): out of bounds VA '%x'", va);
-		return NULL;
-	}
-	uint32 next_block_va = va + old_size;
-
-	// if the next block is not free
-	uint32 *page_table = NULL;
-	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
-	if (frame_info != NULL) {
-		return NULL;
-	}
-    
-	old_size /= PAGE_SIZE;
-	new_size /= PAGE_SIZE;
-	struct HeapBlock* cur_blk = to_heap_block(va);
-    struct HeapBlock* next_blk = to_heap_block(next_block_va);
-	uint32 next_block_size = next_blk->page_count;
-	uint32 total_size = old_size + next_block_size;
-
-	if (total_size < new_size) {
-		return NULL;
-	}
-
-	struct HeapBlock* rm_blk = split_heap_block(next_blk, new_size - old_size);
-	if(rm_blk != NULL) {
-		LIST_INSERT_BEFORE(&free_blocks_list, next_blk, rm_blk);
-	}
-	LIST_REMOVE(&free_blocks_list, next_blk);
-
-	cur_blk->page_count = new_size;
-
-	return (void *)va;
-}
 
 void *krealloc(void *virtual_address, uint32 new_size)
 {
@@ -456,11 +304,7 @@ void *krealloc(void *virtual_address, uint32 new_size)
 	//return NULL;
 	//panic("krealloc() is not implemented yet...!!");
 	if (virtual_address == NULL) {
-		if (new_size == 0) {
-			return NULL;
-		} else {
 			return kmalloc(new_size);
-		}
 	}
 
 	if (new_size == 0) {
@@ -468,92 +312,63 @@ void *krealloc(void *virtual_address, uint32 new_size)
 		return NULL;
 	}
 
-	void * new_allocated_va = (void *)virtual_address;
-    uint32 old_size = 0;
+	void * new_allocated_va = virtual_address;
+    uint32 old_size = get_allocation_size((uint32) virtual_address);
 
-    bool is_blk_addr = ((uint32) virtual_address >= kheap_start) &&
-	                   ((uint32)virtual_address < kheap_break);
-	bool is_page_addr = ((uint32) virtual_address >= kheap_limit + PAGE_SIZE) &&
-				        ((uint32) virtual_address < KERNEL_HEAP_MAX);
-						
-   // get the size of block
-	if(is_page_addr) {
-		struct HeapBlock* blk = to_heap_block((uint32) virtual_address);
-		old_size = blk->page_count * PAGE_SIZE;
-	} else if(is_blk_addr) {
-        old_size = get_block_size(virtual_address) - (2 * sizeof(uint32));
-	} else {
-		panic("krealloc(): out of bounds VA '%x'", virtual_address);
-		return NULL;
+	if (old_size == 0) {
+		panic("krealloc(): trying to reallocate a unallocated block (va: %x)", virtual_address);
 	}
-    
-    // expand the block
-	if(new_size >= old_size) {
-		// the new and old bolcks in Block Allocator Area
-		if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE){
-			new_allocated_va = realloc_block_FF(virtual_address, new_size);
-		}
 
-        // the old bolck in Block Allocator Area but new block in Page Allocator Area
-		else if(is_blk_addr){
-             new_allocated_va = kmalloc(new_size);
+    // the new and old bolcks in Block Allocator Area
+	if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE && old_size <= DYN_ALLOC_MAX_BLOCK_SIZE){
+			return realloc_block_FF(virtual_address, new_size);
+	}
+
+    // one size is in Block Allocator Area and the other is in Page Allocator Area
+	if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE || old_size <= DYN_ALLOC_MAX_BLOCK_SIZE){
+		     new_allocated_va = kmalloc(new_size);
 			 // relocating happened
 			 if(new_allocated_va != NULL) {
-			    memmove(new_allocated_va, virtual_address, old_size);
+				int copy_size = old_size;
+				if(new_size < old_size)
+				copy_size = new_size;
+			    memmove(new_allocated_va, virtual_address, copy_size);
 			    kfree(virtual_address);
 			 }
-		}
-        
-		// the new and old bolcks in Page Allocator Area
-		else {
-		    new_size = ROUNDUP(new_size, PAGE_SIZE);
-		    if(new_size == old_size) {
-		        new_allocated_va = virtual_address ;
-		    }
-		    new_allocated_va = kexpand_block((uint32)virtual_address, new_size);
+			 return new_allocated_va;
+	}
+   
+    //The two sizes in Page Allocator Area 
+	uint32 allocated_pages = ROUNDUP(old_size, PAGE_SIZE) / PAGE_SIZE;
+	uint32 required_pages = ROUNDUP(new_size, PAGE_SIZE) / PAGE_SIZE;
 
-		    // expand failed. try relocating
-		    if(new_allocated_va == NULL) {
-			    new_allocated_va = kmalloc_with_krealloc((uint32)virtual_address, new_size);
-			    // relocating happened
-			    if(new_allocated_va != NULL){
-		    	    kfree(virtual_address);
-			    }
-		    }
+	if(allocated_pages == required_pages) {
+		return virtual_address;
+	}
+	
+    // expand the block
+	if(required_pages > allocated_pages) {
+		new_allocated_va = kexpand_block((uint32)virtual_address, required_pages);
+		// expand failed. try relocating
+		if(new_allocated_va == NULL) {
+			new_allocated_va = kmalloc(new_size);
+			// relocating happened
+		    if(new_allocated_va != NULL){
+				Remap_frames((uint32)virtual_address, (uint32)new_allocated_va, allocated_pages);
+			    kfree(virtual_address);
+			}
 		}
-
 		return new_allocated_va;
 	}
     
 	// shrink the block
 	{
-		// the new and old bolcks in Block Allocator Area
-		if(is_blk_addr) {
-			new_allocated_va = realloc_block_FF(virtual_address, new_size);
-		}    
-        // the new bolck in Block Allocator Area but old block in Page Allocator Area
-		else if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
-             new_allocated_va = kmalloc(new_size);
-			 // relocating happened
-			 if(new_allocated_va != NULL) {
-			    memmove(new_allocated_va, virtual_address, new_size);
-			    kfree(virtual_address);
-			 }
-		}  
-		// the new and old bolcks in Page Allocator Area
-		else {
-			new_allocated_va = virtual_address;
-	        old_size /= PAGE_SIZE;
-	        new_size = ROUNDUP(new_size, PAGE_SIZE) / PAGE_SIZE;
-	        struct HeapBlock* cur_blk = to_heap_block((uint32)virtual_address);
-	        struct HeapBlock* rm_blk = split_heap_block(cur_blk, new_size);
-	        if(rm_blk != NULL) {
-		        rm_blk->page_count = old_size - new_size ;
-			    kfree(rm_blk);
-	        }
-            cur_blk->page_count = new_size;
-		}
-		return new_allocated_va;
+	    struct HeapBlock* cur_blk = to_heap_block((uint32)virtual_address);
+	    struct HeapBlock* rm_blk = split_heap_block(cur_blk, required_pages);
+        assert(rm_blk);
+		kfree(rm_blk);
+
+		return virtual_address;
 	}
 }
 
@@ -582,6 +397,101 @@ split_heap_block(struct HeapBlock* blk, uint32 required_pages)
 	blk->page_count = required_pages;
 
 	return next_block;
+}
+
+void*
+kexpand_block(uint32 va, uint32 required_pages)
+{
+	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
+
+	if (!is_holding_lock) {
+		acquire_spinlock(&MemFrameLists.mfllock);
+	}
+
+	uint32 old_size = get_allocation_size(va);
+	uint32 next_block_va = va + old_size;
+
+	uint32 *page_table = NULL;
+	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
+	// if the next block is not free
+	if (frame_info != NULL) {
+		goto error_return;
+	}
+    
+	old_size /= PAGE_SIZE;
+	struct HeapBlock* cur_blk = to_heap_block(va);
+    struct HeapBlock* next_blk = to_heap_block(next_block_va);
+	uint32 next_block_size = next_blk->page_count;
+	uint32 total_size = old_size + next_block_size;
+
+	if (total_size < required_pages) {
+		goto error_return;
+	}
+
+    void* ret = kmap_frames(next_blk, required_pages - old_size);
+    if(!ret){
+		goto error_return;
+	}
+	cur_blk->page_count = required_pages;
+	if (!is_holding_lock) {
+		release_spinlock(&MemFrameLists.mfllock);
+	}
+	return (void *)va;
+
+error_return:
+     if (!is_holding_lock) {
+		release_spinlock(&MemFrameLists.mfllock);
+	}
+
+	return NULL;
+}
+
+void
+Remap_frames(uint32 va, uint32 new_va, uint32 size) {
+	
+	for (uint32 i = 0; i < size; i++, va += PAGE_SIZE, new_va += PAGE_SIZE) {
+		uint32 *page_table = NULL;
+		uint32 perm = pt_get_page_permissions(ptr_page_directory, va);
+	    struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
+		if(frame_info == NULL){
+			panic("Remap_frames(): not allocated VA '%x'", va);
+		}
+		unmap_frame(ptr_page_directory, new_va);
+		map_frame(ptr_page_directory, frame_info, new_va, perm);
+	}
+
+}
+
+void*
+kmap_frames(struct HeapBlock* blk, uint32 required_pages){
+
+	int status = 0;
+	uint32 va = blk->start_va;
+	for (uint32 i = 0; i < required_pages; i++, va += PAGE_SIZE) {
+		status = allocate_page(va, PTE_KERN, 0);
+		if (status != 0) {
+			break;
+		}
+	}
+
+	// Allocation failed
+	if (status != 0) {
+		// Release allocated frames
+		for (uint32 allocated_va = blk->start_va; allocated_va < va; allocated_va += PAGE_SIZE) {
+			unmap_frame(ptr_page_directory, allocated_va);
+		}
+
+		return NULL;
+	}
+
+	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
+	if (new_blk) {
+		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
+	}
+	LIST_REMOVE(&free_blocks_list, blk);
+
+	return (void*)(blk->start_va);
+
 }
 
 void
@@ -624,4 +534,17 @@ coalescing_heap_block(struct HeapBlock* b) {
 		b->page_count += next->page_count;
 		LIST_REMOVE(&free_blocks_list, next);
 	}
+}
+
+uint32
+get_allocation_size(uint32 va) {
+	bool is_blk_addr = (va >= kheap_start) && (va < kheap_break);
+	bool is_page_addr = (va >= kheap_limit + PAGE_SIZE) && (va < KERNEL_HEAP_MAX);
+
+	if (!is_page_addr && !is_page_addr)	{
+		return 0;
+	}
+
+	return (is_page_addr) ? to_heap_block(va)->page_count * PAGE_SIZE
+						  : get_block_size((void*) va) - (2 * sizeof(uint32));
 }
