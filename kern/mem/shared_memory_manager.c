@@ -253,9 +253,6 @@ int getSharedObject(int32 ownerID, char* shareName, void* virtual_address)
 
 	for (uint32 i = 0; i < number_of_frames; virtual_address += PAGE_SIZE, i++){
 		struct FrameInfo* frame = shared_obj->framesStorage[i];
-		if(!frame){
-			panic("how the fucke ???");
-		}
 
 		uint32 perm = PERM_USER | (shared_obj->isWritable ? PERM_WRITEABLE : 0);
 		map_frame(myenv->env_page_directory, frame, (uint32)virtual_address, perm);
@@ -288,7 +285,7 @@ void free_share(struct Share* ptrShare)
 	// Should do nothing, if `ptrShare` is not in the list
 	LIST_REMOVE(&AllShares.shares_list, ptrShare);
 	release_spinlock(&AllShares.shareslock);
-
+	
 	kfree(ptrShare->framesStorage);
 	kfree(ptrShare);
 }
@@ -304,12 +301,17 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 	struct Share* share_obj = NULL;
 
 	acquire_spinlock(&AllShares.shareslock);
+	bool found = 0;
 	LIST_FOREACH(share_obj, &AllShares.shares_list) {
-		if (share_obj->ID == sharedObjectID) { break; }
+		if (share_obj->ID == sharedObjectID) { 
+			found = 1;
+			break;
+		}
 	}
 	release_spinlock(&AllShares.shareslock);
+	
 
-	if (!share_obj) {
+	if (!found) {
 		return -1;
 	}
 
@@ -326,7 +328,6 @@ int freeSharedObject(int32 sharedObjectID, void *startVA)
 			kfree(page_table);
 		}
 	}
-	// should we use locks here ?!?!??!?!??!?!?!??!?!?!??!?!?!?!?!??!?!?!?!??!?!?!??!?!
 	share_obj->references--;
 	if (share_obj->references == 0) {
 		free_share(share_obj);
