@@ -412,7 +412,7 @@ kexpand_block(uint32 va, uint32 required_pages)
 	uint32 next_block_va = va + old_size;
 
 	uint32 *page_table = NULL;
-	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, va, &page_table);
+	struct FrameInfo *frame_info = get_frame_info(ptr_page_directory, next_block_va, &page_table);
 	// if the next block is not free
 	if (frame_info != NULL) {
 		goto error_return;
