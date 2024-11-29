@@ -219,6 +219,9 @@ struct FrameInfo {
 	// Added to implement kheap_virtual_address.
 	// This doesn't contain an offset, only the virtual address of the page.
 	uint32 mapped_page_virtual_address;
+
+	// Working set element this frame is mapped to
+	struct WorkingSetElement *wse;
 };
 
 #endif /* !__ASSEMBLER__ */
