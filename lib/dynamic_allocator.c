@@ -561,7 +561,7 @@ realloc_block_FF(void* va, uint32 new_size)
 		} else {
 			void *new_allocated_va = alloc_block_FF(new_size);
 			if (new_allocated_va == NULL) {
-				return NULL;
+				return va;
 			}
 
 			memmove(new_allocated_va, va, old_size - 2 * sizeof(uint32));
