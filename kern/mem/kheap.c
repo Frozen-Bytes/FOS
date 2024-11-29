@@ -3,6 +3,7 @@
 #include <inc/memlayout.h>
 #include <inc/dynamic_allocator.h>
 #include "inc/mmu.h"
+#include "kern/conc/spinlock.h"
 #include "memory_manager.h"
 
 #define PAGE_ALLOCATOR_START ((KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE + PAGE_SIZE))
@@ -354,6 +355,11 @@ void *krealloc(void *virtual_address, uint32 new_size)
 		return virtual_address;
 	}
 
+	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
+	if (!is_holding_lock) {
+		acquire_spinlock(&MemFrameLists.mfllock);
+	}
+
     // expand the block
 	if (required_pages > allocated_pages) {
 		new_allocated_va = kexpand_block((uint32)virtual_address, required_pages);
@@ -366,19 +372,21 @@ void *krealloc(void *virtual_address, uint32 new_size)
 			    kfree(virtual_address);
 			}
 		}
-
-		return new_allocated_va;
-	}
-
-	// shrink the block
-	{
+	} else {
+		// shrink the block
 	    struct HeapBlock* cur_blk = to_heap_block((uint32)virtual_address);
 	    struct HeapBlock* rm_blk = split_heap_block(cur_blk, required_pages);
         assert(rm_blk);
 		kfree(rm_blk);
 
-		return virtual_address;
+		new_allocated_va = virtual_address;
 	}
+
+    if (!is_holding_lock) {
+		release_spinlock(&MemFrameLists.mfllock);
+	}
+
+	return new_allocated_va;
 }
 
 struct HeapBlock*
