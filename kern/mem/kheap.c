@@ -14,7 +14,7 @@ static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 struct HeapBlock* to_heap_block(uint32 va);
 struct HeapBlock* split_heap_block(struct HeapBlock* blk, uint32 required_pages);
 void* kexpand_block(uint32 va, uint32 required_pages);
-void Remap_frames(uint32 va, uint32 new_va, uint32 size);
+void remap_frames(uint32 va, uint32 new_va, uint32 size);
 void* kmap_frames(struct HeapBlock* blk, uint32 required_pages);
 void insert_heap_block_sorted(struct HeapBlock* b);
 void coalescing_heap_block(struct HeapBlock* b);
@@ -304,7 +304,7 @@ void *krealloc(void *virtual_address, uint32 new_size)
 	//return NULL;
 	//panic("krealloc() is not implemented yet...!!");
 	if (virtual_address == NULL) {
-			return kmalloc(new_size);
+		return kmalloc(new_size);
 	}
 
 	if (new_size == 0) {
@@ -312,55 +312,55 @@ void *krealloc(void *virtual_address, uint32 new_size)
 		return NULL;
 	}
 
-	void * new_allocated_va = virtual_address;
+	void* new_allocated_va = virtual_address;
     uint32 old_size = get_allocation_size((uint32) virtual_address);
 
 	if (old_size == 0) {
-		panic("krealloc(): trying to reallocate a unallocated block (va: %x)", virtual_address);
+		panic("krealloc(): trying to reallocate an unallocated block (va: %x)", virtual_address);
 	}
 
     // the new and old bolcks in Block Allocator Area
-	if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE && old_size <= DYN_ALLOC_MAX_BLOCK_SIZE){
-			return realloc_block_FF(virtual_address, new_size);
+	if ((new_size <= DYN_ALLOC_MAX_BLOCK_SIZE) && (old_size <= DYN_ALLOC_MAX_BLOCK_SIZE)){
+		return realloc_block_FF(virtual_address, new_size);
 	}
 
     // one size is in Block Allocator Area and the other is in Page Allocator Area
-	if(new_size <= DYN_ALLOC_MAX_BLOCK_SIZE || old_size <= DYN_ALLOC_MAX_BLOCK_SIZE){
-		     new_allocated_va = kmalloc(new_size);
-			 // relocating happened
-			 if(new_allocated_va != NULL) {
-				int copy_size = old_size;
-				if(new_size < old_size)
-				copy_size = new_size;
-			    memmove(new_allocated_va, virtual_address, copy_size);
-			    kfree(virtual_address);
-			 }
-			 return new_allocated_va;
+	if ((new_size <= DYN_ALLOC_MAX_BLOCK_SIZE) || (old_size <= DYN_ALLOC_MAX_BLOCK_SIZE)){
+		 new_allocated_va = kmalloc(new_size);
+		 // relocating happened
+		 if (new_allocated_va != NULL) {
+			int copy_size = MIN(new_size, old_size);
+			memmove(new_allocated_va, virtual_address, copy_size);
+			kfree(virtual_address);
+		 }
+
+		 return new_allocated_va;
 	}
-   
-    //The two sizes in Page Allocator Area 
+
+    //The two sizes in Page Allocator Area
 	uint32 allocated_pages = ROUNDUP(old_size, PAGE_SIZE) / PAGE_SIZE;
 	uint32 required_pages = ROUNDUP(new_size, PAGE_SIZE) / PAGE_SIZE;
 
-	if(allocated_pages == required_pages) {
+	if (allocated_pages == required_pages) {
 		return virtual_address;
 	}
-	
+
     // expand the block
-	if(required_pages > allocated_pages) {
+	if (required_pages > allocated_pages) {
 		new_allocated_va = kexpand_block((uint32)virtual_address, required_pages);
 		// expand failed. try relocating
 		if(new_allocated_va == NULL) {
 			new_allocated_va = kmalloc(new_size);
 			// relocating happened
 		    if(new_allocated_va != NULL){
-				Remap_frames((uint32)virtual_address, (uint32)new_allocated_va, allocated_pages);
+				remap_frames((uint32)virtual_address, (uint32)new_allocated_va, allocated_pages);
 			    kfree(virtual_address);
 			}
 		}
+
 		return new_allocated_va;
 	}
-    
+
 	// shrink the block
 	{
 	    struct HeapBlock* cur_blk = to_heap_block((uint32)virtual_address);
@@ -417,7 +417,7 @@ kexpand_block(uint32 va, uint32 required_pages)
 	if (frame_info != NULL) {
 		goto error_return;
 	}
-    
+
 	old_size /= PAGE_SIZE;
 	struct HeapBlock* cur_blk = to_heap_block(va);
     struct HeapBlock* next_blk = to_heap_block(next_block_va);
@@ -447,8 +447,8 @@ error_return:
 }
 
 void
-Remap_frames(uint32 va, uint32 new_va, uint32 size) {
-	
+remap_frames(uint32 va, uint32 new_va, uint32 size) {
+
 	for (uint32 i = 0; i < size; i++, va += PAGE_SIZE, new_va += PAGE_SIZE) {
 		uint32 *page_table = NULL;
 		uint32 perm = pt_get_page_permissions(ptr_page_directory, va);
