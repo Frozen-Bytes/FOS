@@ -418,24 +418,25 @@ kexpand_block(uint32 va, uint32 required_pages)
 		goto error_return;
 	}
 
-	old_size /= PAGE_SIZE;
+	uint32 allocated_pages = old_size / PAGE_SIZE;
 	struct HeapBlock* cur_blk = to_heap_block(va);
     struct HeapBlock* next_blk = to_heap_block(next_block_va);
-	uint32 next_block_size = next_blk->page_count;
-	uint32 total_size = old_size + next_block_size;
+	uint32 total_pages = allocated_pages + next_blk->page_count;
 
-	if (total_size < required_pages) {
+	if (total_pages < required_pages) {
 		goto error_return;
 	}
 
-    void* ret = kmap_frames(next_blk, required_pages - old_size);
+    void* ret = kmap_frames(next_blk, required_pages - allocated_pages);
     if(!ret){
 		goto error_return;
 	}
 	cur_blk->page_count = required_pages;
+
 	if (!is_holding_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
+
 	return (void *)va;
 
 error_return:
