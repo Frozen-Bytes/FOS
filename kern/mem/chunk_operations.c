@@ -8,6 +8,7 @@
 #include <kern/trap/fault_handler.h>
 #include <kern/disk/pagefile_manager.h>
 #include <kern/proc/user_environment.h>
+#include "inc/memlayout.h"
 #include "kheap.h"
 #include "memory_manager.h"
 #include <inc/queue.h>
@@ -207,6 +208,7 @@ void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 //=====================================
 void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
+	//TODO: [PROJECT'24.MS2 - #15] [3] USER HEAP [KERNEL SIDE] - free_user_mem
 	int page_cnt = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 
 	uint32 *cur_page_table = NULL;
@@ -224,17 +226,27 @@ void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 		// free pages from page file
 		pf_remove_env_page(e, cur_va);
 
-		// free pages that only in the working set
-		env_page_ws_invalidate(e, cur_va);
+		//TODO: [PROJECT'24.MS2 - BONUS#3] [3] USER HEAP [KERNEL SIDE] - O(1) free_user_mem
+		struct FrameInfo *frame = get_frame_info(e->env_page_directory, cur_va, &cur_page_table);
+		if (!frame) {
+			continue;
+		}
+		
+		struct WorkingSetElement *wse = frame->wse;
+		if (!wse) {
+			continue;
+		}
+
+		unmap_frame(e->env_page_directory, wse->virtual_address);
+		
+		if (e->page_last_WS_element == wse)
+		{
+			e->page_last_WS_element = LIST_NEXT(wse);
+		}
+
+		LIST_REMOVE(&(e->page_WS_list), wse);
+		kfree(wse);
 	}
-
-
-
-	//TODO: [PROJECT'24.MS2 - #15] [3] USER HEAP [KERNEL SIDE] - free_user_mem
-	
-
-
-	//TODO: [PROJECT'24.MS2 - BONUS#3] [3] USER HEAP [KERNEL SIDE] - O(1) free_user_mem
 }
 
 //=====================================

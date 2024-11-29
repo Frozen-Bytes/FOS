@@ -268,6 +268,9 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 		if (new_element == NULL){
             panic("fault_handler.c::page_fault_handler(): Failed to create WS element!");
         }
+		// Added to implement O(1) free_user_mem
+		new_frame->wse = new_element;
+
 		LIST_INSERT_TAIL(&(faulted_env->page_WS_list), new_element);
 		if(LIST_SIZE(&(faulted_env->page_WS_list)) == faulted_env->page_WS_max_size) {
 			faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_list));
