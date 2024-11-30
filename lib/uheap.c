@@ -66,11 +66,8 @@ void* malloc(uint32 size)
 		return NULL;
 	}
 
-	// mark all pages in the range as taken
-	for (int i = first_page ; i < first_page + required_pages ; i++) {
-		uheap_pages_info[i].size = size;
-		uheap_pages_info[i].taken = 1;
-	}
+	uheap_pages_info[first_page].size = size;
+	uheap_pages_info[first_page].taken = 1;
 
 	// get the virtual size
 	void* va = (void*)(UHEAP_PAGE_ALLOCATOR_START + (PAGE_SIZE * first_page));
@@ -111,11 +108,10 @@ void free(void* virtual_address)
 
 		uint32 allocated_size = uheap_pages_info[page_idx].size;
 		uint32 page_count = ROUNDUP(allocated_size, PAGE_SIZE) / PAGE_SIZE;
-		for (int i = page_idx ; i < page_idx + page_count ; i++) {
-			uheap_pages_info[i].size = 0;
-			uheap_pages_info[i].taken = 0;
-			uheap_pages_info[i].shared_obj_id = 0;
-		}
+
+		uheap_pages_info[page_idx].size = 0;
+		uheap_pages_info[page_idx].taken = 0;
+
 		sys_free_user_mem((uint32)virtual_address, allocated_size);
 
 	} else {
