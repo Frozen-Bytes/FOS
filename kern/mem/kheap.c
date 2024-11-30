@@ -444,7 +444,7 @@ kexpand_block(uint32 va, uint32 required_pages)
 		return NULL;
 	}
 
-	struct HeapBlock* new_next_blk = split_heap_block(next_blk , required_pages);
+	struct HeapBlock* new_next_blk = split_heap_block(next_blk , required_pages - allocated_pages);
 	if (new_next_blk) {
 		LIST_INSERT_AFTER(&free_blocks_list, next_blk, new_next_blk);
 	}
