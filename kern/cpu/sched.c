@@ -12,9 +12,10 @@
 #include <kern/cpu/picirq.h>
 
 
-uint32 isSchedMethodRR(){if(scheduler_method == SCH_RR) return 1; return 0;}
-uint32 isSchedMethodMLFQ(){if(scheduler_method == SCH_MLFQ) return 1; return 0;}
-uint32 isSchedMethodBSD(){if(scheduler_method == SCH_BSD) return 1; return 0;}
+uint32 isSchedMethodRR(){return (scheduler_method == SCH_RR);}
+uint32 isSchedMethodMLFQ(){return (scheduler_method == SCH_MLFQ); }
+uint32 isSchedMethodBSD(){return(scheduler_method == SCH_BSD); }
+uint32 isSchedMethodPRIRR(){return(scheduler_method == SCH_PRIRR); }
 
 //===================================================================================//
 //============================ SCHEDULER FUNCTIONS ==================================//
@@ -23,6 +24,8 @@ static struct Env* (*sched_next[])(void) = {
 [SCH_RR]    fos_scheduler_RR,
 [SCH_MLFQ]  fos_scheduler_MLFQ,
 [SCH_BSD]   fos_scheduler_BSD,
+[SCH_PRIRR]   fos_scheduler_PRIRR,
+
 };
 
 //===================================
@@ -238,9 +241,36 @@ void sched_init_BSD(uint8 numOfLevels, uint8 quantum)
 	//=========================================
 }
 
+//======================================
+// [6] Initialize PRIORITY RR Scheduler:
+//======================================
+void sched_init_PRIRR(uint8 numOfPriorities, uint8 quantum, uint32 starvThresh)
+{
+	//TODO: [PROJECT'24.MS3 - #07] [3] PRIORITY RR Scheduler - sched_init_PRIRR
+	//Your code is here
+	//Comment the following line
+	panic("Not implemented yet");
+
+
+
+
+
+
+
+
+
+	//=========================================
+	//DON'T CHANGE THESE LINES=================
+	uint16 cnt0 = kclock_read_cnt0_latch() ; //read after write to ensure it's set to the desired value
+	cprintf("*	PRIORITY RR scheduler with initial clock = %d\n", cnt0);
+	mycpu()->scheduler_status = SCH_STOPPED;
+	scheduler_method = SCH_PRIRR;
+	//=========================================
+	//=========================================
+}
 
 //=========================
-// [6] RR Scheduler:
+// [7] RR Scheduler:
 //=========================
 struct Env* fos_scheduler_RR()
 {
@@ -274,7 +304,7 @@ struct Env* fos_scheduler_RR()
 }
 
 //=========================
-// [6] MLFQ Scheduler:
+// [8] MLFQ Scheduler:
 //=========================
 struct Env* fos_scheduler_MLFQ()
 {
@@ -293,7 +323,7 @@ struct Env* fos_scheduler_MLFQ()
 }
 
 //=========================
-// [7] BSD Scheduler:
+// [9] BSD Scheduler:
 //=========================
 struct Env* fos_scheduler_BSD()
 {
@@ -308,16 +338,30 @@ struct Env* fos_scheduler_BSD()
 	panic("Not implemented yet");
 
 }
+//=============================
+// [10] PRIORITY RR Scheduler:
+//=============================
+struct Env* fos_scheduler_PRIRR()
+{
+	/*To protect process Qs (or info of current process) in multi-CPU************************/
+	if(!holding_spinlock(&ProcessQueues.qlock))
+		panic("fos_scheduler_PRIRR: q.lock is not held by this CPU while it's expected to be.");
+	/****************************************************************************************/
+	//TODO: [PROJECT'24.MS3 - #08] [3] PRIORITY RR Scheduler - fos_scheduler_PRIRR
+	//Your code is here
+	//Comment the following line
+	panic("Not implemented yet");
+}
 
 //========================================
-// [8] Clock Interrupt Handler
+// [11] Clock Interrupt Handler
 //	  (Automatically Called Every Quantum)
 //========================================
 void clock_interrupt_handler(struct Trapframe* tf)
 {
-	if (isSchedMethodBSD())
+	if (isSchedMethodPRIRR())
 	{
-		//[PROJECT] BSD Scheduler - clock_interrupt_handler
+		//TODO: [PROJECT'24.MS3 - #09] [3] PRIORITY RR Scheduler - clock_interrupt_handler
 		//Your code is here
 		//Comment the following line
 		panic("Not implemented yet");

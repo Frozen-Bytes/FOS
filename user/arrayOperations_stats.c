@@ -12,18 +12,21 @@ void _main(void)
 	int32 parentenvID = sys_getparentenvid();
 
 	int ret;
-	/*[1] GET SHARED VARs*/
+	/*[1] GET SEMAPHORES*/
+	struct semaphore ready = get_semaphore(parentenvID, "Ready");
+	struct semaphore finished = get_semaphore(parentenvID, "Finished");
+
+	/*[2] WAIT A READY SIGNAL FROM THE MASTER*/
+	wait_semaphore(ready);
+
+	/*[3] GET SHARED VARs*/
 	//Get the shared array & its size
 	int *numOfElements = NULL;
 	int *sharedArray = NULL;
 	sharedArray = sget(parentenvID,"arr") ;
 	numOfElements = sget(parentenvID,"arrSize") ;
 
-	//Get the check-finishing counter
-	int *finishedCount = NULL;
-	finishedCount = sget(parentenvID,"finishedCount") ;
-
-	/*[2] DO THE JOB*/
+	/*[4] DO THE JOB*/
 	int mean;
 	int var ;
 	int min ;
@@ -50,7 +53,7 @@ void _main(void)
 	shMax = smalloc("max", sizeof(int), 0) ; *shMax = max;
 	shMed = smalloc("med", sizeof(int), 0) ; *shMed = med;
 
-	(*finishedCount)++ ;
+	signal_semaphore(finished);
 
 }
 

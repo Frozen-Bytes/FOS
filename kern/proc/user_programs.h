@@ -131,4 +131,12 @@ DECLARE_START_OF(tst_chan_one_master);
 DECLARE_START_OF(tst_chan_one_slave);
 DECLARE_START_OF(mergesort_static);
 
+DECLARE_START_OF(tst_protection);
+DECLARE_START_OF(tst_protection_slave1);
+
+DECLARE_START_OF(tst_page_replacement_alloc);
+DECLARE_START_OF(tst_page_replacement_nthclock_1);
+DECLARE_START_OF(tst_page_replacement_nthclock_2);
+DECLARE_START_OF(tst_page_replacement_stack);
+
 #endif /* KERN_USER_PROGRAMS_H_ */

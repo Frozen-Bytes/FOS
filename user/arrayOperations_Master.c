@@ -10,14 +10,34 @@ void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var);
 void
 _main(void)
 {
-	/*[1] CREATE SHARED ARRAY*/
+	/*[1] CREATE SEMAPHORES*/
+	struct semaphore ready = create_semaphore("Ready", 0);
+	struct semaphore finished = create_semaphore("Finished", 0);
+	struct semaphore cons_mutex = create_semaphore("Console Mutex", 1);
+
+	/*[2] RUN THE SLAVES PROGRAMS*/
+	int numOfSlaveProgs = 3 ;
+
+	int32 envIdQuickSort = sys_create_env("slave_qs", (myEnv->page_WS_max_size),(myEnv->SecondListSize) ,(myEnv->percentage_of_WS_pages_to_be_removed));
+	int32 envIdMergeSort = sys_create_env("slave_ms", (myEnv->page_WS_max_size),(myEnv->SecondListSize), (myEnv->percentage_of_WS_pages_to_be_removed));
+	int32 envIdStats = sys_create_env("slave_stats", (myEnv->page_WS_max_size), (myEnv->SecondListSize),(myEnv->percentage_of_WS_pages_to_be_removed));
+
+	if (envIdQuickSort == E_ENV_CREATION_ERROR || envIdMergeSort == E_ENV_CREATION_ERROR || envIdStats == E_ENV_CREATION_ERROR)
+		panic("NO AVAILABLE ENVs...");
+
+	sys_run_env(envIdQuickSort);
+	sys_run_env(envIdMergeSort);
+	sys_run_env(envIdStats);
+
+	/*[3] CREATE SHARED ARRAY*/
 	int ret;
 	char Chose;
 	char Line[30];
-	//2012: lock the interrupt
-//	sys_lock_cons();
-	sys_lock_cons();
-
+	int NumOfElements;
+	int *Elements = NULL;
+	//lock the console
+	wait_semaphore(cons_mutex);
+	{
 		cprintf("\n");
 		cprintf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		cprintf("!!!   ARRAY OOERATIONS   !!!\n");
@@ -29,8 +49,8 @@ _main(void)
 		//Create the shared array & its size
 		int *arrSize = smalloc("arrSize", sizeof(int) , 0) ;
 		*arrSize = strtol(Line, NULL, 10) ;
-		int NumOfElements = *arrSize;
-		int *Elements = smalloc("arr", sizeof(int) * NumOfElements , 0) ;
+		NumOfElements = *arrSize;
+		Elements = smalloc("arr", sizeof(int) * NumOfElements , 0) ;
 
 		cprintf("Chose the initialization method:\n") ;
 		cprintf("a) Ascending\n") ;
@@ -44,9 +64,9 @@ _main(void)
 			cputchar('\n');
 		} while (Chose != 'a' && Chose != 'b' && Chose != 'c');
 
-	sys_unlock_cons();
-//	//2012: unlock the interrupt
-//	sys_unlock_cons();
+	}
+	signal_semaphore(cons_mutex);
+	//unlock the console
 
 	int  i ;
 	switch (Chose)
@@ -64,27 +84,17 @@ _main(void)
 		InitializeSemiRandom(Elements, NumOfElements);
 	}
 
-	//Create the check-finishing counter
-	int numOfSlaveProgs = 3 ;
-	int *numOfFinished = smalloc("finishedCount", sizeof(int), 1) ;
-	*numOfFinished = 0 ;
+	/*[4] SIGNAL READY TO THE SLAVES*/
+	for (int i = 0; i < numOfSlaveProgs; ++i) {
+		signal_semaphore(ready);
+	}
 
-	/*[2] RUN THE SLAVES PROGRAMS*/
-	int32 envIdQuickSort = sys_create_env("slave_qs", (myEnv->page_WS_max_size),(myEnv->SecondListSize) ,(myEnv->percentage_of_WS_pages_to_be_removed));
-	int32 envIdMergeSort = sys_create_env("slave_ms", (myEnv->page_WS_max_size),(myEnv->SecondListSize), (myEnv->percentage_of_WS_pages_to_be_removed));
-	int32 envIdStats = sys_create_env("slave_stats", (myEnv->page_WS_max_size), (myEnv->SecondListSize),(myEnv->percentage_of_WS_pages_to_be_removed));
+	/*[5] WAIT TILL ALL SLAVES FINISHED*/
+	for (int i = 0; i < numOfSlaveProgs; ++i) {
+		wait_semaphore(finished);
+	}
 
-	if (envIdQuickSort == E_ENV_CREATION_ERROR || envIdMergeSort == E_ENV_CREATION_ERROR || envIdStats == E_ENV_CREATION_ERROR)
-		panic("NO AVAILABLE ENVs...");
-
-	sys_run_env(envIdQuickSort);
-	sys_run_env(envIdMergeSort);
-	sys_run_env(envIdStats);
-
-	/*[3] BUSY-WAIT TILL FINISHING THEM*/
-	while (*numOfFinished != numOfSlaveProgs) ;
-
-	/*[4] GET THEIR RESULTS*/
+	/*[6] GET THEIR RESULTS*/
 	int *quicksortedArr = NULL;
 	int *mergesortedArr = NULL;
 	int *mean = NULL;
@@ -100,7 +110,7 @@ _main(void)
 	max = sget(envIdStats,"max") ;
 	med = sget(envIdStats,"med") ;
 
-	/*[5] VALIDATE THE RESULTS*/
+	/*[7] VALIDATE THE RESULTS*/
 	uint32 sorted = CheckSorted(quicksortedArr, NumOfElements);
 	if(sorted == 0) panic("The array is NOT quick-sorted correctly") ;
 	sorted = CheckSorted(mergesortedArr, NumOfElements);
@@ -119,7 +129,7 @@ _main(void)
 	if(*mean != correctMean || *var != correctVar|| *min != correctMin || *max != correctMax || *med != correctMed)
 		panic("The array STATS are NOT calculated correctly") ;
 
-	cprintf("Congratulations!! Scenario of Using the Shared Variables [Create & Get] completed successfully!!\n\n\n");
+	cprintf("Congratulations!! Scenario of Using the Semaphores & Shared Variables completed successfully!!\n\n\n");
 
 	return;
 }

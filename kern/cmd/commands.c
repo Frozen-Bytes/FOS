@@ -20,10 +20,9 @@
 #include "../tests/utilities.h"
 #include "../cons/console.h"
 
-
 //Array of commands. (initialized)
 struct Command commands[] =
-	{
+{
 		//*******************************//
 		/* COMMANDS WITH ZERO ARGUMENTS */
 		//*******************************//
@@ -63,19 +62,23 @@ struct Command commands[] =
 		{ "schedRR", "switch the scheduler to RR with given quantum", command_sch_RR, 1},
 		{"schedTest", "Used for turning on/off the scheduler test", command_sch_test, 1},
 		{"lru", "set replacement algorithm to LRU", command_set_page_rep_LRU, 1},
-		{"nclock", "set replacement algorithm to Nth chance CLOCK", command_set_page_rep_nthCLOCK, 1},
+
 		{"modbufflength", "set the length of the modified buffer", command_set_modified_buffer_length, 1},
+		{ "setStarvThr", "set the the starvation threshold of priority scheduler", command_set_starve_thresh, 1},
 
 		//******************************//
 		/* COMMANDS WITH TWO ARGUMENTS */
 		//******************************//
 		{ "wm", "writes one byte to specific physical location" ,command_writemem_k, 2},
 		{ "schedBSD", "switch the scheduler to BSD with given # queues & quantum", command_sch_BSD, 2},
+		{ "setPri", "set the priority of the given environment (by its ID)", command_set_priority, 2},
+		{"nclock", "set replacement algorithm to Nth chance CLOCK (type=1: NORMAL Ver. type=2: MODIFIED Ver.", command_set_page_rep_nthCLOCK, 2},
 
 		//********************************//
 		/* COMMANDS WITH THREE ARGUMENTS */
 		//********************************//
 		{ "rub", "reads block of bytes from specific location in given environment" ,command_readuserblock, 3},
+		//TODO: [PROJECT'24.MS3 - #07] [3] PRIORITY RR Scheduler - initialize command
 
 		//**************************************//
 		/* COMMANDS WITH AT LEAST ONE ARGUMENT */
@@ -366,6 +369,7 @@ struct Env * CreateEnv(int number_of_arguments, char **arguments)
 	uint32 LRUSecondListSize = 0;			//arg#4 default
 	uint32 percent_WS_pages_to_remove = 0;	//arg#5 default
 	int BSDSchedNiceVal = -100;				//arg#5 default
+	int PRIRRSchedPriority = 0;				//arg#5 default
 
 #if USE_KHEAP
 	{
@@ -378,7 +382,11 @@ struct Env * CreateEnv(int number_of_arguments, char **arguments)
 				return NULL;
 			}
 			//percent_WS_pages_to_remove = strtol(arguments[4], NULL, 10);
-			BSDSchedNiceVal = strtol(arguments[4], NULL, 10);
+			if (isSchedMethodBSD())
+				BSDSchedNiceVal = strtol(arguments[4], NULL, 10);
+			else if (isSchedMethodPRIRR())
+				PRIRRSchedPriority = strtol(arguments[4], NULL, 10);
+
 			LRUSecondListSize = strtol(arguments[3], NULL, 10);
 			pageWSSize = strtol(arguments[2], NULL, 10);
 			break;
@@ -386,8 +394,10 @@ struct Env * CreateEnv(int number_of_arguments, char **arguments)
 			if(!isPageReplacmentAlgorithmLRU(PG_REP_LRU_LISTS_APPROX))
 			{
 				//percent_WS_pages_to_remove = strtol(arguments[3], NULL, 10);
-				BSDSchedNiceVal = strtol(arguments[3], NULL, 10);
-			}
+				if (isSchedMethodBSD())
+					BSDSchedNiceVal = strtol(arguments[3], NULL, 10);
+				else if (isSchedMethodPRIRR())
+					PRIRRSchedPriority = strtol(arguments[3], NULL, 10);			}
 			else
 			{
 				LRUSecondListSize = strtol(arguments[3], NULL, 10);
@@ -424,6 +434,8 @@ struct Env * CreateEnv(int number_of_arguments, char **arguments)
 			}
 		}
 		assert(percent_WS_pages_to_remove >= 0 && percent_WS_pages_to_remove <= 100);
+
+			//assert(PRIRRSchedPriority >= 0 && PRIRRSchedPriority < num_of_ready_queues);
 //		if (BSDSchedNiceVal != -100)
 //		{
 //			cprintf("nice value = %d\n", BSDSchedNiceVal);
@@ -459,6 +471,9 @@ struct Env * CreateEnv(int number_of_arguments, char **arguments)
 		assert(BSDSchedNiceVal >= -20 && BSDSchedNiceVal <= 20);
 		env_set_nice(env, BSDSchedNiceVal);
 	}
+	if (isSchedMethodPRIRR())
+		env_set_priority(env->env_id, PRIRRSchedPriority);
+
 	return env;
 }
 
@@ -553,6 +568,19 @@ int command_set_page_rep_LRU(int number_of_arguments, char **arguments)
 int command_set_page_rep_nthCLOCK(int number_of_arguments, char **arguments)
 {
 	uint32 PageWSMaxSweeps = strtol(arguments[1], NULL, 10);
+	uint8 type = strtol(arguments[2], NULL, 10);
+	if (PageWSMaxSweeps <= 0)
+	{
+		cprintf("Invalid number of sweeps! it should be +ve.\n");
+		return 0;
+	}
+	if (type == 1)		PageWSMaxSweeps = PageWSMaxSweeps * 1;
+	else if (type == 2)	PageWSMaxSweeps = PageWSMaxSweeps * -1;
+	else
+	{
+		cprintf("Invalid type!\n	type=1: NORMAL Ver. type=2: MODIFIED Ver.\n");
+		return 0;
+	}
 	setPageReplacmentAlgorithmNchanceCLOCK(PageWSMaxSweeps);
 	cprintf("Page replacement algorithm is now N chance CLOCK\n");
 	return 0;
@@ -617,6 +645,21 @@ int command_sch_BSD(int number_of_arguments, char **arguments)
 	cprintf("\n");
 	return 0;
 }
+int command_set_starve_thresh(int number_of_arguments, char **arguments)
+{
+	uint32 starvationThresh = strtol(arguments[1], NULL, 10);
+	sched_set_starv_thresh(starvationThresh);
+	return 0;
+}
+int command_set_priority(int number_of_arguments, char **arguments)
+{
+	int32 envId = strtol(arguments[1],NULL, 10);
+	int32 priority = strtol(arguments[2],NULL, 10);
+
+	env_set_priority(envId, priority);
+
+	return 0;
+}
 int command_print_sch_method(int number_of_arguments, char **arguments)
 {
 	if (isSchedMethodMLFQ())
@@ -635,6 +678,10 @@ int command_print_sch_method(int number_of_arguments, char **arguments)
 	else if (isSchedMethodBSD())
 	{
 		cprintf("Scheduler is now set to BSD with %d levels & quantum = %d\n", num_of_ready_queues, quantums[0]);
+	}
+	else if (isSchedMethodPRIRR())
+	{
+		cprintf("Scheduler is now set to PRIORITY RR with %d priorities & quantum = %d\n", num_of_ready_queues, quantums[0]);
 	}
 	else
 		cprintf("Current scheduler method is UNDEFINED\n");
@@ -668,6 +715,12 @@ int command_print_page_rep(int number_of_arguments, char **arguments)
 		cprintf("Page replacement algorithm is FIFO\n");
 	else if (isPageReplacmentAlgorithmModifiedCLOCK())
 		cprintf("Page replacement algorithm is Modified CLOCK\n");
+	else if (isPageReplacmentAlgorithmNchanceCLOCK())
+	{
+		cprintf("Page replacement algorithm is Nth Chance CLOCK ");
+		if (page_WS_max_sweeps > 0)			cprintf("[NORMAL ver]\n");
+		else if (page_WS_max_sweeps < 0)	cprintf("[MODIFIED ver]\n");
+	}
 	else
 		cprintf("Page replacement algorithm is UNDEFINED\n");
 

@@ -283,8 +283,8 @@ int pf_update_env_page(struct Env* ptr_env, uint32 virtual_address, struct Frame
 	if(ptr_disk_page_table == NULL || (ptr_disk_page_table != NULL && ptr_disk_page_table[PTX(virtual_address)]== 0))
 	{
 
-		uint32 VA = (uint32)virtual_address ;
-		if ((VA >= USER_HEAP_START && VA < USER_HEAP_MAX) || (VA >= USTACKBOTTOM && VA < USTACKTOP))
+		if ((virtual_address >= USER_HEAP_START && virtual_address < USER_HEAP_MAX) ||
+				(virtual_address >= USTACKBOTTOM && virtual_address < USTACKTOP))
 		{
 			/*2023*/ //EL7 :)
 			/* REMOVE THIS CONDITION SINCE THE GIVEN virtual_address MIGHT HAVE PRESENT = 0
@@ -316,7 +316,7 @@ int pf_update_env_page(struct Env* ptr_env, uint32 virtual_address, struct Frame
 			//			//Else, just add a new empty page to the page file, then update it with the given modified_page_frame_info in the below code
 			//			else
 			{
-				ret = pf_add_empty_env_page(ptr_env, VA, 0);
+				ret = pf_add_empty_env_page(ptr_env, virtual_address, 0);
 
 				if (ret == E_NO_PAGE_FILE_SPACE)
 				{
@@ -340,16 +340,21 @@ int pf_update_env_page(struct Env* ptr_env, uint32 virtual_address, struct Frame
 
 #if USE_KHEAP
 	{
-		//FIX: we should implement a better solution for this, but for now
+		//FIX (obsolete): we should implement a better solution for this, but for now
 		//		we are using an unused VA in the invalid area of kernel at 0xef800000 (the current USER_LIMIT)
 		//		to do temp initialization of a frame.
-		map_frame(ptr_env->env_page_directory, modified_page_frame_info, USER_LIMIT, 0);
 
-		ret = write_disk_page(dfn, (void*)ROUNDDOWN(USER_LIMIT, PAGE_SIZE));
+		//FIX'24 (el7): due to concurrency issues in 1-1 thread model, using the USER_LIMIT as a temp loc
+		//				will lead to concurrency problems since it's shared among processes.
+		//				Instead, use PGFLTEMP as a local temporarily page at user space for this mapping
+		//				to do temp initialization of a frame.
+		map_frame(ptr_env->env_page_directory, modified_page_frame_info, (uint32)PGFLTEMP, 0);
+
+		ret = write_disk_page(dfn, (void*)ROUNDDOWN((uint32)PGFLTEMP, PAGE_SIZE));
 
 		// TEMPORARILY increase the references to prevent unmap_frame from removing the frame
 		modified_page_frame_info->references += 1;
-		unmap_frame(ptr_env->env_page_directory, USER_LIMIT);
+		unmap_frame(ptr_env->env_page_directory, (uint32)PGFLTEMP);
 		// Return it to its original status
 		modified_page_frame_info->references -= 1;
 
