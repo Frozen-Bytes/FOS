@@ -3,6 +3,7 @@
 /* *********************************************************** */
 
 #include <inc/lib.h>
+#include <user/tst_utilities.h>
 
 #define Mega  (1024*1024)
 #define kilo (1024)
@@ -51,45 +52,80 @@ void _main(void)
 	bool chk;
 	int usedDiskPages = sys_pf_calculate_allocated_pages() ;
 	int freeFrames = sys_calculate_free_frames() ;
-	uint32 actualSize;
+	uint32 actualSize, block_size, blockIndex;
+	int8 block_status;
+	void* expectedVA;
+	uint32 expectedSize, curTotalSize,roundedTotalSize ;
 
+	void* curVA = (void*) USER_HEAP_START + sizeof(int) /*BEG Block*/ ;
 	//====================================================================//
 	/*INITIAL ALLOC Scenario 1: Try to allocate set of blocks with different sizes*/
 	cprintf("PREREQUISITE#1: Try to allocate set of blocks with different sizes [all should fit]\n\n") ;
 	{
 		is_correct = 1;
-		void* curVA = (void*) USER_HEAP_START ;
-		uint32 actualSize;
+		curTotalSize = sizeof(int);
 		for (int i = 0; i < numOfAllocs; ++i)
 		{
 			for (int j = 0; j < allocCntPerSize; ++j)
 			{
 				actualSize = allocSizes[i] - sizeOfMetaData;
-				va = startVAs[idx++] = malloc(actualSize);
+				va = startVAs[idx] = malloc(actualSize);
+				midVAs[idx] = va + actualSize/2 ;
+				endVAs[idx] = va + actualSize - sizeof(short);
 				//Check returned va
-				if(va == NULL || (va < curVA))
-				{
-					if (is_correct)
-					{
-						is_correct = 0;
-						panic("malloc() #1.%d: WRONG ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", idx, curVA + sizeOfMetaData ,va);
-					}
-				}
-				curVA += allocSizes[i] ;
-
+				expectedVA = (curVA + sizeOfMetaData/2);
+				expectedSize = allocSizes[i];
+				curTotalSize += allocSizes[i] ;
 				//============================================================
 				//Check if the remaining area doesn't fit the DynAllocBlock,
-				//so update the curVA to skip this area
-				void* rounded_curVA = ROUNDUP(curVA, PAGE_SIZE);
-				int diff = (rounded_curVA - curVA) ;
-				if (diff > 0 && diff < sizeOfMetaData)
+				//so update the curVA & curTotalSize to skip this area
+				roundedTotalSize = ROUNDUP(curTotalSize, PAGE_SIZE);
+				int diff = (roundedTotalSize - curTotalSize) ;
+				if (diff > 0 && diff < (DYN_ALLOC_MIN_BLOCK_SIZE + sizeOfMetaData))
 				{
-					curVA = rounded_curVA;
+//					cprintf("%~\n FRAGMENTATION: curVA = %x diff = %d\n", curVA, diff);
+//					cprintf("%~\n Allocated block @ %x with size = %d\n", va, get_block_size(va));
+
+					curVA = ROUNDUP(curVA, PAGE_SIZE)- sizeof(int) /*next alloc will start at END Block (after sbrk)*/;
+					curTotalSize = roundedTotalSize - sizeof(int) /*exclude END Block*/;
+					expectedSize += diff - sizeof(int) /*exclude END Block*/;
+				}
+				else
+				{
+					curVA += allocSizes[i] ;
 				}
 				//============================================================
+				if (is_correct)
+				{
+					if (check_block(va, expectedVA, expectedSize, 1) == 0)
+					{
+						if (is_correct)
+						{
+							is_correct = 0;
+							panic("alloc_block_xx #PRQ.%d: WRONG ALLOC\n", idx);
+						}
+					}
+				}
+				idx++;
+
 			}
 			//if (is_correct == 0)
 			//break;
+		}
+	}
+	/* Fill the remaining space at the end of the DA*/
+	roundedTotalSize = ROUNDUP(curTotalSize, PAGE_SIZE);
+	uint32 remainSize = (roundedTotalSize - curTotalSize) - sizeof(int) /*END block*/;
+	if (remainSize >= (DYN_ALLOC_MIN_BLOCK_SIZE + sizeOfMetaData))
+	{
+		cprintf("Filling the remaining size of %d\n\n", remainSize);
+		va = startVAs[idx] = alloc_block(remainSize - sizeOfMetaData, DA_FF);
+		//Check returned va
+		expectedVA = curVA + sizeOfMetaData/2;
+		if (check_block(va, expectedVA, remainSize, 1) == 0)
+		{
+			is_correct = 0;
+			panic("alloc_block_xx #PRQ.oo: WRONG ALLOC\n", idx);
 		}
 	}
 
@@ -97,9 +133,15 @@ void _main(void)
 	/*Free set of blocks with different sizes (first block of each size)*/
 	cprintf("1: Free set of blocks with different sizes (first block of each size)\n\n") ;
 	{
+		is_correct = 1;
 		for (int i = 0; i < numOfAllocs; ++i)
 		{
 			free(startVAs[i*allocCntPerSize]);
+			if (check_block(startVAs[i*allocCntPerSize], startVAs[i*allocCntPerSize], allocSizes[i], 0) == 0)
+			{
+				is_correct = 0;
+				cprintf("test_ff_2 #1.1: WRONG FREE!\n");
+			}
 		}
 	}
 
@@ -118,7 +160,12 @@ void _main(void)
 			8*sizeof(char) + sizeOfMetaData, 	//expected to be allocated in 1st free block
 			kilo/8,								//expected to be allocated in remaining of 4th free block
 	} ;
-
+	uint32 expectedSizes[numOfFFTests] =
+	{
+			kilo/4,					//expected to be allocated in 4th free block
+			allocSizes[0], 			//INTERNAL FRAGMENTATION CASE in 1st Block
+			kilo/8,					//expected to be allocated in remaining of 4th free block
+	} ;
 	uint32 startOf1stFreeBlock = (uint32)startVAs[0*allocCntPerSize];
 	uint32 startOf4thFreeBlock = (uint32)startVAs[3*allocCntPerSize];
 
@@ -138,11 +185,10 @@ void _main(void)
 			tstMidVAs[i] = va + actualSize/2 ;
 			tstEndVAs[i] = va + actualSize - sizeof(short);
 			//Check returned va
-			if(tstStartVAs[i] == NULL || (tstStartVAs[i] != (short*)expectedVAs[i]))
+			if (check_block(tstStartVAs[i], (void*) expectedVAs[i], expectedSizes[i], 1) == 0)
 			{
 				is_correct = 0;
-				cprintf("malloc() #2.%d: WRONG FF ALLOC - alloc_block_FF return wrong address. Expected %x, Actual %x\n", i, expectedVAs[i] ,tstStartVAs[i]);
-				//break;
+				cprintf("test_ff_2 #2.%d: WRONG ALLOCATE AFTER FREE!\n", i);
 			}
 			*(tstStartVAs[i]) = 353 + i;
 			*(tstMidVAs[i]) = 353 + i;
@@ -152,7 +198,7 @@ void _main(void)
 		if(get_block_size(tstStartVAs[1]) != allocSizes[0])
 		{
 			is_correct = 0;
-			cprintf("malloc() #3: WRONG FF ALLOC - make sure if the remaining free space doesn’t fit a dynamic allocator block, then this area should be added to the allocated area and counted as internal fragmentation\n");
+			cprintf("test_ff_2 #2.3: WRONG FF ALLOC - make sure if the remaining free space doesn’t fit a dynamic allocator block, then this area should be added to the allocated area and counted as internal fragmentation\n");
 			//break;
 		}
 		if (is_correct)
@@ -168,15 +214,16 @@ void _main(void)
 		is_correct = 1;
 
 		actualSize = kilo/8 - sizeOfMetaData; 	//expected to be allocated in remaining of 4th free block
+		expectedSize = ROUNDUP(actualSize + sizeOfMetaData, 2);
 		va = tstStartVAs[numOfFFTests] = malloc(actualSize);
 		tstMidVAs[numOfFFTests] = va + actualSize/2 ;
 		tstEndVAs[numOfFFTests] = va + actualSize - sizeof(short);
 		//Check returned va
-		void* expected = (void*)(startOf4thFreeBlock + testSizes[0] + testSizes[2]) ;
-		if(va == NULL || (va != expected))
+		expectedVA = (void*)(startOf4thFreeBlock + testSizes[0] + testSizes[2]) ;
+		if (check_block(tstStartVAs[numOfFFTests], expectedVA, expectedSize, 1) == 0)
 		{
 			is_correct = 0;
-			cprintf("malloc() #4: WRONG FF ALLOC - alloc_block_FF return wrong address.expected %x, actual %x\n", expected, va);
+			cprintf("test_ff_2 #3: WRONG ALLOCATE AFTER FREE!\n");
 		}
 		*(tstStartVAs[numOfFFTests]) = 353 + numOfFFTests;
 		*(tstMidVAs[numOfFFTests]) = 353 + numOfFFTests;
@@ -199,7 +246,7 @@ void _main(void)
 			if (*(tstStartVAs[i]) != (353+i) || *(tstMidVAs[i]) != (353+i) || *(tstEndVAs[i]) != (353+i) )
 			{
 				is_correct = 0;
-				cprintf("malloc #5.%d: WRONG! content of the block is not correct. Expected=%d, val1=%d, val2=%d, val3=%d\n",i, (353+i), *(tstStartVAs[i]), *(tstMidVAs[i]), *(tstEndVAs[i]));
+				cprintf("malloc #4.%d: WRONG! content of the block is not correct. Expected=%d, val1=%d, val2=%d, val3=%d\n",i, (353+i), *(tstStartVAs[i]), *(tstMidVAs[i]), *(tstEndVAs[i]));
 				break;
 			}
 		}
@@ -228,7 +275,7 @@ void _main(void)
 			if(va == NULL)
 			{
 				is_correct = 0;
-				cprintf("malloc() #6.%d: WRONG FF ALLOC - alloc_block_FF return NULL address while it's expected to return correct one.\n");
+				cprintf("malloc() #5.%d: WRONG FF ALLOC - alloc_block_FF return NULL address while it's expected to return correct one.\n");
 				break;
 			}
 		}
@@ -240,7 +287,7 @@ void _main(void)
 		if(va != NULL)
 		{
 			is_correct = 0;
-			cprintf("malloc() #7: WRONG FF ALLOC - alloc_block_FF return an address while it's expected to return NULL since it reaches the hard limit.\n");
+			cprintf("malloc() #6: WRONG FF ALLOC - alloc_block_FF return an address while it's expected to return NULL since it reaches the hard limit.\n");
 		}
 		if (is_correct)
 		{

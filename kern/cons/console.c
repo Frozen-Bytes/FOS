@@ -594,3 +594,22 @@ void cons_unlock(void)
 	}
 
 }
+
+// helpers
+void
+reset_cursor_position(void)
+{
+	crt_pos = 0;
+}
+
+void
+clear_screen_buffer(void)
+{
+	// accessing the screen buffer in the memeory
+	uint32 *crt_buf = (uint32*)(KERNEL_BASE + CGA_BUF);
+
+	// setting the screen buffer content to spaces with black background
+	for (int i = 0; i < CRT_SIZE; i++)
+		crt_buf[i] = 0x0700 | ' ';
+	reset_cursor_position();
+}

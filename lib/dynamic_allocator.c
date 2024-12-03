@@ -9,7 +9,6 @@
 #include "../inc/dynamic_allocator.h"
 
 
-
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
 //==================================================================================//
@@ -71,7 +70,7 @@ void print_blocks_list(struct MemBlock_LIST list)
 	cprintf("\nDynAlloc Blocks List:\n");
 	LIST_FOREACH(blk, &list)
 	{
-		cprintf("(size: %d, isFree: %d)\n", get_block_size(blk), is_free_block(blk)) ;
+		cprintf("(size: %d, isFree: %d, address: %p)\n", get_block_size(blk), is_free_block(blk), blk) ;
 	}
 	cprintf("=========================================\n");
 
@@ -79,6 +78,22 @@ void print_blocks_list(struct MemBlock_LIST list)
 //
 ////********************************************************************************//
 ////********************************************************************************//
+uint32*
+get_header_of_block(void *va)
+{
+	// move 4 bytes back from first free space.
+	uint32 *header = (uint32*) va - 1;
+	return header;
+}
+
+uint32*
+get_footer_of_block(void *va)
+{
+	uint32 *header = (uint32*) va - 1;
+	// move to end of footer than go back 4 bytes.
+	uint32 *footer = (uint32*)((uint8*)header + get_block_size(va) - sizeof(uint32));
+	return footer;
+}
 
 //==================================================================================//
 //============================ REQUIRED FUNCTIONS ==================================//
@@ -168,6 +183,18 @@ mark_blk_freed(void *blk){
     set_block_data(blk , cur_blk_size , 0);
 }
 
+void
+merge_blocks(struct BlockElement *va , struct BlockElement * v2)
+{
+	// remove right block from free list
+	LIST_REMOVE(&freeBlocksList , v2);
+
+	// adjust first block with new sizes
+	uint32 new_sz = get_block_size(va) + get_block_size(v2);
+
+	set_block_data(va , new_sz , 0);
+
+}
 
 void*
 handle_allocation(void *required_blk, uint32 required_size) {
@@ -180,15 +207,36 @@ handle_allocation(void *required_blk, uint32 required_size) {
         LIST_REMOVE(&freeBlocksList, (struct BlockElement*)required_blk);
         return required_blk;
     }
-
     // If no fitting block is found, request more memory from sbrk
-    required_blk = sbrk(required_size);
-    if ((int32)required_blk == -1) {
+    uint32 new_allocated_size = ROUNDUP(required_size, PAGE_SIZE);
+	// to start the allocation from the old END BLOCK
+	void *sbrk_result = sbrk(new_allocated_size / PAGE_SIZE);
+	void *start_new_allocated_memory = sbrk_result - sizeof(uint32);
+    if (sbrk_result == (void*)-1) {
         return NULL;
     } else {
-        // Split the block if it's too large
-        block_split(required_blk, required_size);
-        mark_blk_allocated(required_blk);
+		struct BlockElement *new_free_block = (struct BlockElement*)((uint32*)start_new_allocated_memory + 1);
+		set_block_data(new_free_block, new_allocated_size, 0);
+		// footer of the prev block to check if it's allocated
+		bool is_allocated = *((uint32*)start_new_allocated_memory - 1) & 1;
+		if(is_allocated){
+			// no merge is expected
+			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
+	        block_split((void*)new_free_block, required_size);
+	        mark_blk_allocated((void*)new_free_block);
+			LIST_REMOVE(&freeBlocksList , new_free_block);
+			required_blk = (void*)new_free_block;
+		}
+		else{
+			// merge is expected so we start from the base of the last block
+			struct BlockElement *last_free_block = LIST_LAST(&freeBlocksList);
+			LIST_INSERT_TAIL(&freeBlocksList, new_free_block);
+			merge_blocks(last_free_block, new_free_block);
+	        block_split((void*)last_free_block, required_size);
+	        mark_blk_allocated((void*)last_free_block);
+			LIST_REMOVE(&freeBlocksList , last_free_block);
+			required_blk = (void*)last_free_block;
+		}
         return required_blk;
     }
 }
@@ -288,36 +336,8 @@ alloc_block_BF(uint32 size)
 // [5] FREE BLOCK WITH COALESCING:
 //===================================================
 
-uint32*
-get_header_of_block(void *va)
-{
-	// move 4 bytes back from first free space.
-	uint32 *header = (uint32*) va - 1;
-	return header;
-}
-
-uint32*
-get_footer_of_block(void *va)
-{
-	uint32 *header = (uint32*) va - 1;
-	// move to end of footer than go back 4 bytes.
-	uint32 *footer = (uint32*)((uint8*)header + get_block_size(va) - sizeof(uint32));
-	return footer;
-}
 
 
-void
-merge_blocks(struct BlockElement *va , struct BlockElement * v2)
-{
-	// remove right block from free list
-	LIST_REMOVE(&freeBlocksList , v2);
-
-	// adjust first block with new sizes
-	uint32 new_sz = get_block_size(va) + get_block_size(v2);
-
-	set_block_data(va , new_sz , 0);
-
-}
 
 void
 insert_sorted_into_free_list(struct BlockElement *va) {
@@ -387,14 +407,15 @@ free_block(void *va)
 //=========================================
 // [6] REALLOCATE BLOCK BY FIRST FIT:
 //=========================================
+
 int
 is_valid_block(void* va)
 {
-	//TODO: [PROJECT'24.MS1 - #08] [3] DYNAMIC ALLOCATOR - realloc_block_FF
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
+	// BEG/END are special blocks, their size=0 and marked allocated
+	// so if the block doesn't have these specs, it's valid to use
 	return !(get_block_size(va) == 0 && !is_free_block(va));
 }
-	//Your Code is Here...
+
 void
 set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_block_size)
 {
@@ -408,7 +429,7 @@ set_data_and_split_block(void* va, uint32 new_required_size, uint32 remaining_bl
 }
 
 void*
-shrink(void* va, uint32 new_required_size)
+shrink_block(void* va, uint32 new_required_size)
 {
 	// avoid accessing nullptr
 	assert(va != NULL);
@@ -451,7 +472,7 @@ shrink(void* va, uint32 new_required_size)
 }
 
 void*
-expand(void* va, uint32 new_required_size)
+expand_block(void* va, uint32 new_required_size)
 {
 	// avoid accessing nullptr
 	assert(va != NULL);
@@ -529,10 +550,10 @@ realloc_block_FF(void* va, uint32 new_size)
 	}
 
 	if (new_required_size < old_size) {
-		return shrink(va, new_required_size);
+		return shrink_block(va, new_required_size);
 	} else {
-		void *new_va = expand(va, new_required_size);
-		
+		void *new_va = expand_block(va, new_required_size);
+
 		// expand happened
 		if (new_va == va) {
 			return new_va;

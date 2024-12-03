@@ -471,7 +471,7 @@ bool is_subsequence(const char *subsequence, const char *sequence)
 }
 
 int process_command(int number_of_arguments, char **arguments)
-{
+{   
     // reinitialize found commands before every "process command" to make sure no previous results are effecting current command
     LIST_INIT(&foundCommands);
     // exclude command name from number of arguments

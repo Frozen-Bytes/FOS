@@ -8,6 +8,7 @@
 #include <kern/trap/fault_handler.h>
 #include <kern/disk/pagefile_manager.h>
 #include <kern/proc/user_environment.h>
+#include "inc/memlayout.h"
 #include "kheap.h"
 #include "memory_manager.h"
 #include <inc/queue.h>
@@ -120,6 +121,21 @@ uint32 calculate_required_frames(uint32* page_directory, uint32 sva, uint32 size
 //=====================================
 /* DYNAMIC ALLOCATOR SYSTEM CALLS */
 //=====================================
+void
+lazy_allocate_page(uint32 start_page , uint32 size , struct Env* env)
+{
+    uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
+
+	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE) {
+		uint32 *page_table = NULL;
+	    struct FrameInfo *frame_info = get_frame_info(env->env_page_directory, va, &page_table);
+		if(page_table == NULL) {
+			create_page_table(env->env_page_directory, va);
+		}
+		pt_set_page_permissions(env->env_page_directory, va, PERM_USER_MARKED, 0);
+	}
+}
+
 void* sys_sbrk(int numOfPages)
 {
 	/* numOfPages > 0: move the segment break of the current user program to increase the size of its heap
@@ -130,20 +146,38 @@ void* sys_sbrk(int numOfPages)
 	 * NOTES:
 	 * 	1) As in real OS, allocate pages lazily. While sbrk moves the segment break, pages are not allocated
 	 * 		until the user program actually tries to access data in its heap (i.e. will be allocated via the fault handler).
-	 * 	2) Allocating additional pages for a process’ heap will fail if, for example, the free frames are exhausted
+	 * 	2) Allocating additional pages for a processï¿½ heap will fail if, for example, the free frames are exhausted
 	 * 		or the break exceed the limit of the dynamic allocator. If sys_sbrk fails, the net effect should
 	 * 		be that sys_sbrk returns (void*) -1 and that the segment break and the process heap are unaffected.
 	 * 		You might have to undo any operations you have done so far in this case.
 	 */
 
-	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
-
+	//TODO: [PROJECT'24.MS2 - #11] [3] USER HEAP - sys_sbrk
 	/*====================================*/
 	/*Remove this line before start coding*/
-	return (void*)-1 ;
+	//return (void*)-1 ;
 	/*====================================*/
+	struct Env* env = get_cpu_proc(); //the current running Environment to adjust its break limit
 
-	//[PROJECT'24.MS2] Implement this function
+    if(numOfPages == 0) {
+		return (void*)env->uheap_break;
+	}
+    
+	uint32 new_added_size = numOfPages * PAGE_SIZE;
+	uint32 new_break = env->uheap_break + new_added_size;
+	if(new_break > env->uheap_limit){
+		return (void*)-1;
+	}
+    
+	uint32 start_page = env->uheap_break;
+	lazy_allocate_page(start_page, new_added_size, env);
+	env->uheap_break = new_break;
+
+	// update the END BLOCK
+	uint32 *end_block = (uint32*)(env->uheap_break - sizeof(uint32));
+	*end_block = 1;
+
+	return (void*)(start_page);
 
 }
 
@@ -152,15 +186,21 @@ void* sys_sbrk(int numOfPages)
 //=====================================
 void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
-	/*====================================*/
-	/*Remove this line before start coding*/
-	inctst();
-	return;
-	/*====================================*/
+	uint32 needed_page_cnt = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE; // convert size into needed number of pages
 
-	//[PROJECT'24.MS2] [USER HEAP - KERNEL SIDE] allocate_user_mem
-	// Write your code here, remove the panic and write your code
-	panic("allocate_user_mem() is not implemented yet...!!");
+	uint32 *cur_page_table = NULL;
+
+	for (uint32 cur_va = virtual_address ; needed_page_cnt ; needed_page_cnt-- , cur_va += PAGE_SIZE) {
+
+		int ret = get_page_table(e->env_page_directory , cur_va , &cur_page_table);
+
+		if (ret == TABLE_NOT_EXIST) { // create table if it doesn't exist
+			create_page_table(e->env_page_directory , cur_va);
+		}
+
+		pt_set_page_permissions(e->env_page_directory , cur_va , PERM_USER_MARKED , 0); // set pages as marked
+	}
+	// panic("allocate_user_mem() is not implemented yet...!!");
 }
 
 //=====================================
@@ -168,15 +208,45 @@ void allocate_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 //=====================================
 void free_user_mem(struct Env* e, uint32 virtual_address, uint32 size)
 {
-	/*====================================*/
-	/*Remove this line before start coding*/
-	inctst();
-	return;
-	/*====================================*/
+	//TODO: [PROJECT'24.MS2 - #15] [3] USER HEAP [KERNEL SIDE] - free_user_mem
+	int page_cnt = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 
-	//[PROJECT'24.MS2] [USER HEAP - KERNEL SIDE] free_user_mem
-	// Write your code here, remove the panic and write your code
-	panic("free_user_mem() is not implemented yet...!!");
+	uint32 *cur_page_table = NULL;
+
+	for (uint32 cur_va = virtual_address ; page_cnt ; page_cnt-- , cur_va += PAGE_SIZE) {
+
+		int ret = get_page_table(e->env_page_directory , cur_va , &cur_page_table);
+		if (ret == TABLE_NOT_EXIST) {
+			continue;
+		}
+		
+		// unmark pages
+		pt_set_page_permissions(e->env_page_directory , cur_va , 0 , PERM_USER_MARKED);
+
+		// free pages from page file
+		pf_remove_env_page(e, cur_va);
+
+		//TODO: [PROJECT'24.MS2 - BONUS#3] [3] USER HEAP [KERNEL SIDE] - O(1) free_user_mem
+		struct FrameInfo *frame = get_frame_info(e->env_page_directory, cur_va, &cur_page_table);
+		if (!frame) {
+			continue;
+		}
+		
+		struct WorkingSetElement *wse = frame->wse;
+		if (!wse) {
+			continue;
+		}
+
+		unmap_frame(e->env_page_directory, wse->virtual_address);
+		
+		if (e->page_last_WS_element == wse)
+		{
+			e->page_last_WS_element = LIST_NEXT(wse);
+		}
+
+		LIST_REMOVE(&(e->page_WS_list), wse);
+		kfree(wse);
+	}
 }
 
 //=====================================

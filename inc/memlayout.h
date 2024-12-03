@@ -15,7 +15,7 @@
  */
 
 /*2016*/
-#define USE_KHEAP 0
+#define USE_KHEAP 1
 
 // Global descriptor numbers
 #define GD_KT     0x08     // kernel text
@@ -215,6 +215,13 @@ struct FrameInfo {
 	struct Env *proc;
 	uint32 bufferedVA;
 	unsigned char isBuffered;
+
+	// Added to implement kheap_virtual_address.
+	// This doesn't contain an offset, only the virtual address of the page.
+	uint32 mapped_page_virtual_address;
+
+	// Working set element this frame is mapped to
+	struct WorkingSetElement *wse;
 };
 
 #endif /* !__ASSEMBLER__ */

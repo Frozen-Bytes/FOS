@@ -119,6 +119,10 @@ struct Env {
 									//(to be dynamically allocated during the process creation)
 									//Its first page is ALWAYS used as a GUARD PAGE (i.e. unmapped)
 
+	//=======================================================================
+	//TODO: [PROJECT'24.MS2 - #10] [3] USER HEAP - add suitable code here
+
+	//=======================================================================
 	//for page file management
 	uint32* disk_env_pgdir;
 	//2016
@@ -178,6 +182,10 @@ struct Env {
 	uint32 nPageIn, nPageOut, nNewPageAdded;
 	uint32 nClocks ;
 
+	// For user heap block allocator
+	uint32 uheap_start;
+	uint32 uheap_break;
+	uint32 uheap_limit;
 };
 
 #define PRIORITY_LOW    		1

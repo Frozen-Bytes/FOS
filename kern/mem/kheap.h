@@ -5,7 +5,10 @@
 # error "This is a FOS kernel header; user programs should not #include it"
 #endif
 
+
+
 #include <inc/types.h>
+#include <inc/queue.h>
 
 
 /*2017*/
@@ -41,7 +44,20 @@ unsigned int kheap_physical_address(unsigned int virtual_address);
 int numOfKheapVACalls ;
 
 
-//[PROJECT'24.MS2] add suitable code here
+//TODO: [PROJECT'24.MS2 - #01] [1] KERNEL HEAP - add suitable code here
+uint32 kheap_start;
+uint32 kheap_break;
+uint32 kheap_limit;
 
+struct HeapBlock {
+	/* free list link */
+	LIST_ENTRY(HeapBlock) prev_next_info;
+
+    uint32 page_count;
+	uint32 start_va;
+};
+
+LIST_HEAD(HeapBlock_List, HeapBlock);
+struct HeapBlock_List free_blocks_list;
 
 #endif // FOS_KERN_KHEAP_H_

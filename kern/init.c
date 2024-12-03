@@ -75,6 +75,8 @@ void FOS_initialize()
 		detect_memory();
 		initialize_kernel_VM();
 		initialize_paging();
+		sharing_init();
+
 #if USE_KHEAP
 		initialize_kheap_dynamic_allocator(KERNEL_HEAP_START, PAGE_SIZE, KERNEL_HEAP_START + DYN_ALLOC_MAX_SIZE);
 #endif

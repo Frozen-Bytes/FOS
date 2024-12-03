@@ -147,6 +147,9 @@ void fixedPt2Str(fixed_point_t f, int num_dec_digits, char* output)
 int __firstTimeSleep = 1;
 struct Channel __tstchan__ ;
 struct spinlock __tstchan_lk__;
+int __firstTimeSleepLock = 1;
+struct sleeplock __tstslplk__;
+
 void sys_utilities(char* utilityName, int value)
 {
 	if (strncmp(utilityName, "__BSDSetNice@", strlen("__BSDSetNice@")) == 0)
@@ -258,7 +261,34 @@ void sys_utilities(char* utilityName, int value)
 		int* numOfProcesses = (int*) value ;
 		*numOfProcesses = LIST_SIZE(&ProcessQueues.env_ready_queues[0]);
 	}
-
+	else if (strcmp(utilityName, "__AcquireSleepLock__") == 0)
+	{
+		if (__firstTimeSleepLock)
+		{
+			__firstTimeSleepLock = 0;
+			init_sleeplock(&__tstslplk__, "Test Sleep Lock");
+		}
+		acquire_sleeplock(&__tstslplk__);
+	}
+	else if (strcmp(utilityName, "__ReleaseSleepLock__") == 0)
+	{
+		release_sleeplock(&__tstslplk__);
+	}
+	else if (strcmp(utilityName, "__GetLockQueueSize__") == 0)
+	{
+		int* numOfProcesses = (int*) value ;
+		*numOfProcesses = LIST_SIZE(&__tstslplk__.chan.queue);
+	}
+	else if (strcmp(utilityName, "__GetLockValue__") == 0)
+	{
+		int* lockVal = (int*) value ;
+		*lockVal =__tstslplk__.locked;
+	}
+	else if (strcmp(utilityName, "__GetLockOwner__") == 0)
+	{
+		uint32* lockOwnerID = (uint32*) value ;
+		*lockOwnerID =__tstslplk__.pid;
+	}
 	if ((int)value < 0)
 	{
 		if (strcmp(utilityName, "__ReplStrat__") == 0)

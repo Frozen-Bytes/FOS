@@ -49,6 +49,8 @@ LIST_HEAD(Share_List, Share);		// Declares 'struct Share_List'
 		struct Share_List shares_list ;	//List of all share variables created by any process
 		struct spinlock shareslock;		//Use it to protect the shares_list in the kernel
 	}AllShares;
+
+	void sharing_init();
 #endif
 
 int createSharedObject(int32 ownerID, char* shareName, uint32 size, uint8 isWritable, void* virtual_address);
@@ -56,13 +58,5 @@ int getSizeOfSharedObject(int32 ownerID, char* shareName);
 int getSharedObject(int32 ownerID, char* shareName, void* virtual_address);
 int freeSharedObject(int32 sharedObjectID, void *startVA);
 
-//2014
-inline struct FrameInfo** create_frames_storage();
-
-//2017
-struct Share* get_share(int32 ownerID, char* name);
-void 	create_shares_array(uint32 numOfElements);
-int 	allocate_share_object(struct Share **allocatedObject);
-void 	free_share(struct Share* ptrShare);
 
 #endif /* FOS_SHARED_MEMORY_MANAGER_H */
