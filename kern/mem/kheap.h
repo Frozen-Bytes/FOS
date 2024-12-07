@@ -58,6 +58,6 @@ struct HeapBlock {
 };
 
 LIST_HEAD(HeapBlock_List, HeapBlock);
-struct HeapBlock_List free_blocks_list;
+struct HeapBlock_List free_heap_blocks_list;
 
 #endif // FOS_KERN_KHEAP_H_

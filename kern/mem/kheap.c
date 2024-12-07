@@ -71,8 +71,8 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	first_blk->page_count = NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES;
 	first_blk->start_va = PAGE_ALLOCATOR_START;
 
-	LIST_INIT(&free_blocks_list);
-	LIST_INSERT_HEAD(&free_blocks_list, first_blk);
+	LIST_INIT(&free_heap_blocks_list);
+	LIST_INSERT_HEAD(&free_heap_blocks_list, first_blk);
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
@@ -178,7 +178,7 @@ void* kmalloc(unsigned int size)
 	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 	struct HeapBlock* blk = NULL;
 
-	LIST_FOREACH(blk , &free_blocks_list) {
+	LIST_FOREACH(blk , &free_heap_blocks_list) {
 		if (blk->page_count >= required_pages) { break; }
 	}
 
@@ -192,9 +192,9 @@ void* kmalloc(unsigned int size)
 
 	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
 	if (new_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
+		LIST_INSERT_AFTER(&free_heap_blocks_list, blk, new_blk);
 	}
-	LIST_REMOVE(&free_blocks_list, blk);
+	LIST_REMOVE(&free_heap_blocks_list, blk);
 
     if (!is_holding_page_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
@@ -466,9 +466,9 @@ kexpand_block(uint32 va, uint32 required_pages)
 
 	struct HeapBlock* new_next_blk = split_heap_block(next_blk , required_pages - allocated_pages);
 	if (new_next_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, next_blk, new_next_blk);
+		LIST_INSERT_AFTER(&free_heap_blocks_list, next_blk, new_next_blk);
 	}
-	LIST_REMOVE(&free_blocks_list, next_blk);
+	LIST_REMOVE(&free_heap_blocks_list, next_blk);
 	cur_blk->page_count = required_pages;
 
 	return (void *)va;
@@ -518,20 +518,20 @@ void
 insert_heap_block_sorted(struct HeapBlock* b) {
 	assert(b);
 
-	if (LIST_EMPTY(&free_blocks_list)) {
-		LIST_INSERT_HEAD(&free_blocks_list, b);
+	if (LIST_EMPTY(&free_heap_blocks_list)) {
+		LIST_INSERT_HEAD(&free_heap_blocks_list, b);
 		return;
 	}
 
 	struct HeapBlock* blk = NULL;
-	LIST_FOREACH(blk, &free_blocks_list) {
+	LIST_FOREACH(blk, &free_heap_blocks_list) {
 		if (blk->start_va > b->start_va) {
-			LIST_INSERT_BEFORE(&free_blocks_list, blk, b);
+			LIST_INSERT_BEFORE(&free_heap_blocks_list, blk, b);
 			return;
 		}
 	}
 
-	LIST_INSERT_TAIL(&free_blocks_list, b);
+	LIST_INSERT_TAIL(&free_heap_blocks_list, b);
 }
 
 void
@@ -545,14 +545,14 @@ coalescing_heap_block(struct HeapBlock* b) {
 
 	if (is_prev_free && is_next_free) {
 		prev->page_count += b->page_count + next->page_count;
-		LIST_REMOVE(&free_blocks_list, b);
-		LIST_REMOVE(&free_blocks_list, next);
+		LIST_REMOVE(&free_heap_blocks_list, b);
+		LIST_REMOVE(&free_heap_blocks_list, next);
 	} else if (is_prev_free) {
 		prev->page_count += b->page_count;
-		LIST_REMOVE(&free_blocks_list, b);
+		LIST_REMOVE(&free_heap_blocks_list, b);
 	} else if (is_next_free) {
 		b->page_count += next->page_count;
-		LIST_REMOVE(&free_blocks_list, next);
+		LIST_REMOVE(&free_heap_blocks_list, next);
 	}
 }
 
