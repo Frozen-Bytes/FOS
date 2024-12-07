@@ -10,6 +10,7 @@
 #define PTE_KERN (PERM_PRESENT | PERM_USED | PERM_WRITEABLE)
 #define NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES ((KERNEL_HEAP_MAX - PAGE_ALLOCATOR_START) / PAGE_SIZE)
 
+struct spinlock block_allocator_lock;
 static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 
 struct HeapBlock* to_heap_block(uint32 va);
@@ -81,6 +82,7 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 		}
 	}
 
+	init_spinlock(&block_allocator_lock, "Block Allocator Lock");
 	initialize_dynamic_allocator(daStart, initSizeToAllocate);
 	return 0;
 }
@@ -151,12 +153,24 @@ void* kmalloc(unsigned int size)
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
 
     if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
-		return alloc_block_FF(size);
+	    bool is_holding_block_lock = holding_spinlock(&block_allocator_lock);
+
+	    if (!is_holding_block_lock) {
+		    acquire_spinlock(&block_allocator_lock);
+	    }
+
+	    void* va = alloc_block_FF(size);
+
+	    if (!is_holding_block_lock) {
+		    release_spinlock(&block_allocator_lock);
+	    }
+
+	    return va;
 	}
 
-	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
+	bool is_holding_page_lock = holding_spinlock(&MemFrameLists.mfllock);
 
-	if (!is_holding_lock) {
+	if (!is_holding_page_lock) {
 		acquire_spinlock(&MemFrameLists.mfllock);
 	}
 
@@ -182,14 +196,14 @@ void* kmalloc(unsigned int size)
 	}
 	LIST_REMOVE(&free_blocks_list, blk);
 
-    if (!is_holding_lock) {
+    if (!is_holding_page_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
 
 	return (void*) blk->start_va;
 
 error_return:
-   	 if (!is_holding_lock) {
+   	 if (!is_holding_page_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
 	return NULL;
@@ -215,7 +229,9 @@ void kfree(void* virtual_address)
 				        ((uint32) virtual_address < KERNEL_HEAP_MAX);
 
 	if (is_blk_addr) {
+		acquire_spinlock(&block_allocator_lock);
 		free_block(virtual_address);
+		release_spinlock(&block_allocator_lock);
 	} else if (is_page_addr) {
 		acquire_spinlock(&MemFrameLists.mfllock);
 
@@ -331,7 +347,11 @@ void *krealloc(void *virtual_address, uint32 new_size)
 
     // the new and old bolcks in Block Allocator Area
 	if ((new_size <= DYN_ALLOC_MAX_BLOCK_SIZE) && (old_size <= DYN_ALLOC_MAX_BLOCK_SIZE)){
-		return realloc_block_FF(virtual_address, new_size);
+		acquire_spinlock(&block_allocator_lock);
+		void* va = realloc_block_FF(virtual_address, new_size);
+		release_spinlock(&block_allocator_lock);
+
+		return va;
 	}
 
     // one size is in Block Allocator Area and the other is in Page Allocator Area
