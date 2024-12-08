@@ -710,7 +710,6 @@ void env_set_priority(int envID, int priority)
 
 	assert(proc);
 	
-	// acquire_spinlock(&ProcessQueues.qlock);
 
 	if (proc->priority == priority) {
 		return;
@@ -724,7 +723,6 @@ void env_set_priority(int envID, int priority)
 		proc->priority = priority;
 	}
 
-	// release_spinlock(&ProcessQueues.qlock);
 }
 
 void sched_set_starv_thresh(uint32 starvThresh)
