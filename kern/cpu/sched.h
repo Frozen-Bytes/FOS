@@ -42,6 +42,7 @@ struct
 	uint8 quantums[1] ;					// Quantum in ms for RR
 #endif
 	uint8 num_of_ready_queues ;			// Number of ready queue(s)
+	uint32 starvation_threshold;
 
 //===============
 
