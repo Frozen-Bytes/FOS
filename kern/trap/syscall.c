@@ -534,6 +534,10 @@ void unblock_and_enqueue_ready(struct __semdata *semdata){
 }
 
 
+void sys_env_set_priority(int32 envID, int priority)
+{
+	env_set_priority(envID, priority);
+}
 
 /**************************************************************************/
 /************************* SYSTEM CALLS HANDLER ***************************/
@@ -736,6 +740,9 @@ uint32 syscall(uint32 syscallno, uint32 a1, uint32 a2, uint32 a3, uint32 a4, uin
 
 	case NSYSCALLS:
 		return 	-E_INVAL;
+		break;
+	case SYS_SET_PRIORITY:
+		sys_env_set_priority(a1, a2);
 		break;
 	}
 	//panic("syscall not implemented");
