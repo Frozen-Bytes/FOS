@@ -705,22 +705,26 @@ void env_set_priority(int envID, int priority)
 	//Your code is here
 
 	//Get the process of the given ID
-	struct Env* proc ;
+	struct Env* proc;
 	envid2env(envID, &proc, 0);
 
 	assert(proc);
+	
+	// acquire_spinlock(&ProcessQueues.qlock);
 
 	if (proc->priority == priority) {
 		return;
 	}
 
 	if (proc->env_status == ENV_READY) {
-		sched_remove_ready(env);
+		sched_remove_ready(proc);
 		proc->priority = priority;
-		sched_insert_ready(env);
+		sched_insert_ready(proc);
 	} else {
 		proc->priority = priority;
 	}
+
+	// release_spinlock(&ProcessQueues.qlock);
 }
 
 void sched_set_starv_thresh(uint32 starvThresh)
