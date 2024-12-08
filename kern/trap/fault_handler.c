@@ -286,6 +286,49 @@ page_ws_list_remove_element(struct Env * faulted_env, struct WorkingSetElement *
 	env_page_ws_invalidate(faulted_env, va);
 }
 
+void
+update_WS(struct Env * faulted_env , int max_N) {
+    int N = page_WS_max_sweeps;
+	int is_MODIFIED_version = 0;
+	if(N < 0) {
+		N *= -1;
+		is_MODIFIED_version = 1;
+	}
+    
+	struct WorkingSetElement *element = faulted_env->page_last_WS_element;
+	int rm = N - max_N;
+
+	do {
+		uint32 perm = pt_get_page_permissions(faulted_env->env_page_directory, element->virtual_address);
+		uint32 is_used = (perm&PERM_USED), is_modified = (perm&PERM_MODIFIED);
+
+        element->sweeps_counter += rm;   
+		if(is_used) {
+			pt_set_page_permissions(faulted_env->env_page_directory, element->virtual_address, 0, PERM_USED);
+			element->sweeps_counter = rm;
+		}
+
+        int rmN = element->sweeps_counter ;
+		if(is_MODIFIED_version && is_modified) {
+            rmN -= 1;
+		}
+        
+		if(rmN == N) {
+			rm--;
+			if(rm <= 0) {
+			    break;
+		    }
+		}
+
+		element = element->prev_next_info.le_next;
+		if(element == NULL) {
+			element = LIST_FIRST(&(faulted_env->page_WS_list));
+		}
+
+	}while (element != faulted_env->page_last_WS_element);
+	
+}
+
 void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 {
 #if USE_KHEAP
@@ -309,26 +352,18 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 		//TODO: [PROJECT'24.MS3] [2] FAULT HANDLER II - Replacement
 		// Write your code here, remove the panic and write your code
 		//panic("page_fault_handler() Replacement is not implemented yet...!!");
-		env_page_ws_print(faulted_env);
-		cprintf("------------------------------------------------------------------------\n");
-		uint32 is_MODIFIED_version = (page_WS_max_sweeps<0);
-		uint32 N = page_WS_max_sweeps;
-		uint32 max_sweeps_counter = 0;
-		if(N < 0) {
-			N *= -1;
-		}
+		int is_MODIFIED_version = (page_WS_max_sweeps<0);
+		int max_sweeps_counter = -2;
 		struct WorkingSetElement *removed_element = NULL , *element = faulted_env->page_last_WS_element;
         do {
 			uint32 perm = pt_get_page_permissions(faulted_env->env_page_directory, element->virtual_address);
 			uint32 is_used = (perm&PERM_USED), is_modified = (perm&PERM_MODIFIED);
-
+            int rmN = element->sweeps_counter;
+			
 			if(is_used) {
-				pt_set_page_permissions(faulted_env->env_page_directory, element->virtual_address, 0, PERM_USED);
-				element->sweeps_counter = 0;
+				rmN = 0;
 			}
 
-			element->sweeps_counter++;
-            uint32 rmN = element->sweeps_counter ;
 			if(is_MODIFIED_version && is_modified) {
               rmN -= 1;
 			}
@@ -337,10 +372,6 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 				max_sweeps_counter = rmN;
 				removed_element = element;
 			}
-
-			if(rmN >= N) {
-				break;
-			}
 			
 			element = element->prev_next_info.le_next;
 			if(element == NULL) {
@@ -348,12 +379,11 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 			}
 
 		}while (element != faulted_env->page_last_WS_element);
-        
+        update_WS(faulted_env, max_sweeps_counter);
 		page_ws_list_remove_element(faulted_env, removed_element);
 		page_ws_list_insert_element(faulted_env, fault_va);
-
 	}
-	env_page_ws_print(faulted_env);
+	
 }
 
 void __page_fault_handler_with_buffering(struct Env * curenv, uint32 fault_va)
