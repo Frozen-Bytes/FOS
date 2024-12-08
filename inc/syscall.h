@@ -56,7 +56,8 @@ enum
 	//=====================================================================
 	NSYSCALLS,
 	SYS_PROCESS_BLOCKED_SCHED,
-	SYS_UNBLOCK_AND_ENQUEUE_READY
+	SYS_UNBLOCK_AND_ENQUEUE_READY,
+	SYS_SET_PRIORITY
 };
 
 #endif /* !FOS_INC_SYSCALL_H */
