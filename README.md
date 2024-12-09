@@ -23,29 +23,3 @@ The team consists of six members, each focusing on different components of the s
 | Abdllrhman Zedan  | [Abdllrhman Zedan's LinkedIn](https://www.linkedin.com/in/abdllrhmanzedan/)               |
 | Abdallah Mohammed | [Abdallah Mohammed's LinkedIn](https://www.linkedin.com/in/abdallah-mohammed-252095290/)  |
 | Tony Medhat       | [Tony Medhat's LinkedIn](https://www.linkedin.com/in/tonym04/)                            |
-
-# Suggested Functionalities to add in FOS
-
-The following are examples of additional functionalities planned for FOS. These outline **what** the system will support, though the exact **how** may differ from Linux or other systems. **If time permits**, these features will be implemented to enhance the user experience:
-
-1. **Clear Terminal Command** (`clear`)  
-   Clears the terminal screen for a fresh view.
-
-2. **Command History Navigation** (`Arrow keys`)  
-   Allows users to navigate through previously entered commands using the up/down arrow keys.
-
-3. **Auto-Completion** (`Tab key`)  
-   Auto-completes commands, enhancing productivity.
-
-4. **File and Directory Management**  
-   - `cd`: Change the current directory.
-   - `ls`: List directory contents.
-
-
-# Learned Concepts
-- What is an OS and Kernel.
-- How the OS is an illusionist.
-- How the OS enables multiple processes to run simultaneously.
-- How the OS context switches between processes.
-- How the OS handles interrupts, exceptions, and system calls.
-- How the OS manages memory and gives the illusion to every application that it has the whole memory to itself using Paging and Segmentation.
