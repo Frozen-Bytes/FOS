@@ -510,26 +510,24 @@ void sys_bypassPageFault(uint8 instrLength)
 	bypassInstrLength = instrLength;
 }
 
-void sys_block_cur_env()
+void block_and_schedule_next(struct Env_Queue *E)
 {
-	cur_env->env_status = ENV_BLOCKED;
-}
-void sys_enqueue_env(struct Env_Queue *E)
-{
-	enqueue(E , cur_env);
-}
-
-void sys_make_env_ready()
-{
-	cur_env->env_status = ENV_READY;
-	enqueue(&ProcessQueues.env_ready_queues[cur_env->priority], cur_env);
-}
-
-
-int sys_dequeue_env(struct Env_Queue *E){
+	acquire_spinlock(&ProcessQueues.qlock);
 	
-	remove_from_queue(E, cur_env);
-	return 0;
+	cur_env->env_status = ENV_BLOCKED;
+	enqueue(E , cur_env);
+	sched();
+
+	release_spinlock(&ProcessQueues.qlock);
+}
+
+void unblock_and_enqueue_ready(struct Env_Queue *E){
+	acquire_spinlock(&ProcessQueues.qlock);
+
+	struct Env *new_ready_proc = dequeue(E);
+	sched_insert_ready(new_ready_proc);
+
+	release_spinlock(&ProcessQueues.qlock);	
 }
 
 
@@ -724,26 +722,18 @@ uint32 syscall(uint32 syscallno, uint32 a1, uint32 a2, uint32 a3, uint32 a4, uin
 	case SYS_allocate_user_mem:
 		sys_allocate_user_mem(a1, a2);
 		return 0;
-
-	case SYS_BLOCK_ENV:
-		sys_block_cur_env();
+		
+	case SYS_PROCESS_BLOCKED_SCHED:
+		block_and_schedule_next((struct Env_Queue*)a1);
 		return 0;
 		
-	case SYS_ENQUEUE_BLOCKED:
-		sys_enqueue_env((struct Env_Queue*)a1);
-		return 0;
-		
-	case SYS_DEQUEUE_BLOCKED:
-		sys_dequeue_env((struct Env_Queue*)a1);
+	case SYS_UNBLOCK_AND_ENQUEUE_READY:
+		unblock_and_enqueue_ready((struct Env_Queue*)a1);
 		return 0;
 
 	case NSYSCALLS:
 		return 	-E_INVAL;
 		break;
-
-	case SYS_MAKE_ENV_READY:
-		sys_make_env_ready();
-		return 0;
 	}
 	//panic("syscall not implemented");
 	return -E_INVAL;

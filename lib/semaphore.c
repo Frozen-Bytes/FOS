@@ -50,35 +50,24 @@ void wait_semaphore(struct semaphore sem)
 	//COMMENT THE FOLLOWING LINE BEFORE START CODING
 	// panic("wait_se32maphore is not implemented yet");
 	//Your Code is Here...
-
 	
 	uint32 keyw = 1;
 	
-	do{
+	// do{
 		
-		xchg(&keyw,sem.semdata->lock);
+	// 	;
 		
-	}while(keyw != 0);
-
-	if(myEnv->env_status == ENV_RUNNING){
-		sem.semdata->lock = 0;
-		return;
-	}
+	// }while(keyw != 0);
+	while(xchg(&keyw,sem.semdata->lock) != 0);
 
 	sem.semdata->count--;
 	
 	if (sem.semdata->count < 0){
 
-		sys_enqueue_env(&sem.semdata->queue);
-
-		sem.semdata->lock = 0;
-
-		sys_block_cur_env();
-
+		block_and_schedule_next(&sem.semdata->queue);
 	}
-	else{
-		sem.semdata->lock = 0;
-	}
+	
+	sem.semdata->lock = 0;
 
 }
 
@@ -91,24 +80,17 @@ void signal_semaphore(struct semaphore sem)
 
 	uint32 keyw = 1;
 
-	do{
+	// do{
 		
-		xchg(&keyw,sem.semdata->lock);
+	// 	xchg(&keyw,sem.semdata->lock);
 
-	}while(keyw != 0);
-
-	if(myEnv->env_status == ENV_RUNNING){
-		sem.semdata->lock = 0;
-		return;
-	}
-
+	// }while(keyw != 0);
+	while(xchg(&keyw,sem.semdata->lock) != 0);
 	sem.semdata->count++;
 	
 	if (sem.semdata->count <= 0) {
 
-		
-		sys_dequeue_env(&sem.semdata->queue);
-		sys_make_env_ready();
+		unblock_and_enqueue_ready(&sem.semdata->queue);
 	}
 	sem.semdata->lock = 0;
 
