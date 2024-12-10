@@ -55,10 +55,8 @@ enum
 
 	//=====================================================================
 	NSYSCALLS,
-	SYS_BLOCK_ENV,
-	SYS_ENQUEUE_BLOCKED,
-	SYS_DEQUEUE_BLOCKED,
-	SYS_MAKE_ENV_READY 
+	SYS_PROCESS_BLOCKED_SCHED,
+	SYS_UNBLOCK_AND_ENQUEUE_READY
 };
 
 #endif /* !FOS_INC_SYSCALL_H */
