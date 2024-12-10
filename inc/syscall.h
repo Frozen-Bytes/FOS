@@ -54,7 +54,11 @@ enum
 	SYS_allocate_user_mem,
 
 	//=====================================================================
-	NSYSCALLS
+	NSYSCALLS,
+	SYS_BLOCK_ENV,
+	SYS_ENQUEUE_BLOCKED,
+	SYS_DEQUEUE_BLOCKED,
+	SYS_MAKE_ENV_READY 
 };
 
 #endif /* !FOS_INC_SYSCALL_H */

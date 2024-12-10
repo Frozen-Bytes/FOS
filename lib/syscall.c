@@ -319,3 +319,24 @@ void sys_allocate_user_mem(uint32 virtual_address, uint32 size)
 
 	syscall(SYS_allocate_user_mem, virtual_address, size, 0, 0, 0);
 }
+
+void sys_block_cur_env()
+{
+
+	syscall(SYS_BLOCK_ENV, 0, 0, 0, 0, 0);
+}
+
+void sys_enqueue_env(struct Env_Queue* semReady)
+{
+	syscall(SYS_ENQUEUE_BLOCKED, (uint32)semReady, 0, 0, 0, 0);
+}
+
+int sys_dequeue_env(struct Env_Queue* semReady)
+{
+	return syscall(SYS_DEQUEUE_BLOCKED, (uint32)semReady, 0, 0, 0, 0);
+}
+
+void sys_make_env_ready()
+{
+	syscall(SYS_MAKE_ENV_READY, 0, 0, 0, 0, 0);
+}
