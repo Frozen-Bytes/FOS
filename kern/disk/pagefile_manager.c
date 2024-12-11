@@ -85,6 +85,8 @@ void initialize_disk_page_file()
 		//disk_frames_info[i].references = 0;
 		LIST_INSERT_HEAD(&DiskFrameLists.disk_free_frame_list, &disk_frames_info[i]);
 	}
+
+	init_spinlock(&DiskFrameLists.dfllock, "Disk FrameList Lock");
 }
 
 //
