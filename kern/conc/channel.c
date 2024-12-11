@@ -73,7 +73,7 @@ void wakeup_one(struct Channel *chan)
 
 	if (queue_size(blocked_queue) > 0) {
 		struct Env *process_to_wakeup = dequeue(blocked_queue);
-		sched_insert_ready0(process_to_wakeup);
+		sched_insert_ready(process_to_wakeup);
 	}
 
 	// To re-enable other processes to sleep
@@ -98,7 +98,7 @@ void wakeup_all(struct Channel *chan)
 
 	while (queue_size(blocked_queue) > 0) {
 		struct Env *process_to_wakeup = dequeue(blocked_queue);
-		sched_insert_ready0(process_to_wakeup);
+		sched_insert_ready(process_to_wakeup);
 	}
 
 	// To re-enable other processes to sleep
