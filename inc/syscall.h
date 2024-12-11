@@ -53,11 +53,11 @@ enum
 	SYS_free_user_mem,
 	SYS_allocate_user_mem,
 
+	SYS_set_priority,
 	//=====================================================================
-	NSYSCALLS,
 	SYS_PROCESS_BLOCKED_SCHED,
 	SYS_UNBLOCK_AND_ENQUEUE_READY,
-	SYS_SET_PRIORITY
+	NSYSCALLS
 };
 
 #endif /* !FOS_INC_SYSCALL_H */
