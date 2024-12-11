@@ -510,21 +510,24 @@ void sys_bypassPageFault(uint8 instrLength)
 	bypassInstrLength = instrLength;
 }
 
-void block_and_schedule_next(struct Env_Queue *E)
+void block_and_schedule_next(struct __semdata *semdata)
 {
 	acquire_spinlock(&ProcessQueues.qlock);
-	
+
 	cur_env->env_status = ENV_BLOCKED;
-	enqueue(E , cur_env);
+	enqueue(&semdata->queue , cur_env);
+
+	// avoid deadlock by releasing the semaphore lock before being blocked
+	semdata->lock = 0;
 	sched();
 
 	release_spinlock(&ProcessQueues.qlock);
 }
 
-void unblock_and_enqueue_ready(struct Env_Queue *E){
+void unblock_and_enqueue_ready(struct __semdata *semdata){
 	acquire_spinlock(&ProcessQueues.qlock);
 
-	struct Env *new_ready_proc = dequeue(E);
+	struct Env *new_ready_proc = dequeue(&semdata->queue);
 	sched_insert_ready(new_ready_proc);
 
 	release_spinlock(&ProcessQueues.qlock);	
@@ -724,11 +727,11 @@ uint32 syscall(uint32 syscallno, uint32 a1, uint32 a2, uint32 a3, uint32 a4, uin
 		return 0;
 		
 	case SYS_PROCESS_BLOCKED_SCHED:
-		block_and_schedule_next((struct Env_Queue*)a1);
+		block_and_schedule_next((struct __semdata*)a1);
 		return 0;
 		
 	case SYS_UNBLOCK_AND_ENQUEUE_READY:
-		unblock_and_enqueue_ready((struct Env_Queue*)a1);
+		unblock_and_enqueue_ready((struct __semdata *)a1);
 		return 0;
 
 	case NSYSCALLS:

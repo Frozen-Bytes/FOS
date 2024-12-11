@@ -47,53 +47,35 @@ struct semaphore get_semaphore(int32 ownerEnvID, char* semaphoreName)
 void wait_semaphore(struct semaphore sem)
 {
 	//TODO: [PROJECT'24.MS3 - #04] [2] USER-LEVEL SEMAPHORE - wait_semaphore
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	// panic("wait_se32maphore is not implemented yet");
-	//Your Code is Here...
 	
 	uint32 keyw = 1;
 	
-	// do{
-		
-	// 	;
-		
-	// }while(keyw != 0);
-	while(xchg(&keyw,sem.semdata->lock) != 0);
+	while(xchg(&(sem.semdata->lock), keyw) != 0);
 
 	sem.semdata->count--;
 	
 	if (sem.semdata->count < 0){
-
-		block_and_schedule_next(&sem.semdata->queue);
+		block_and_schedule_next(sem.semdata);
 	}
 	
 	sem.semdata->lock = 0;
-
 }
 
 void signal_semaphore(struct semaphore sem)
 {
 	//TODO: [PROJECT'24.MS3 - #05] [2] USER-LEVEL SEMAPHORE - signal_semaphore
-	//COMMENT THE FOLLOWING LINE BEFORE START CODING
-	// panic("signal_semaphore is not implemented yet");
-	//Your Code is Here...
 
-	uint32 keyw = 1;
+	uint32 keys = 1;
 
-	// do{
-		
-	// 	xchg(&keyw,sem.semdata->lock);
-
-	// }while(keyw != 0);
-	while(xchg(&keyw,sem.semdata->lock) != 0);
+	while(xchg(&(sem.semdata->lock), keys) != 0);
+	
 	sem.semdata->count++;
 	
 	if (sem.semdata->count <= 0) {
-
-		unblock_and_enqueue_ready(&sem.semdata->queue);
+		unblock_and_enqueue_ready(sem.semdata);
 	}
-	sem.semdata->lock = 0;
 
+	sem.semdata->lock = 0;
 }
 
 int semaphore_count(struct semaphore sem)
