@@ -53,6 +53,7 @@ enum
 	SYS_free_user_mem,
 	SYS_allocate_user_mem,
 
+	SYS_set_priority,
 	//=====================================================================
 	NSYSCALLS,
 	SYS_PROCESS_BLOCKED_SCHED,
