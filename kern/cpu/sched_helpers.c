@@ -710,19 +710,15 @@ void env_set_priority(int envID, int priority)
 
 	assert(proc);
 	
-
 	if (proc->priority == priority) {
 		return;
 	}
 
-	if (proc->env_status == ENV_READY) {
-		sched_remove_ready(proc);
-		proc->priority = priority;
-		sched_insert_ready(proc);
-	} else {
-		proc->priority = priority;
-	}
+	// remove doesn't depend on priority
+	sched_remove_ready(proc);
 
+	proc->priority = priority;
+	sched_insert_ready(proc);
 }
 
 void sched_set_starv_thresh(uint32 starvThresh)
