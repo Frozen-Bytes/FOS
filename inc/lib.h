@@ -84,8 +84,8 @@ void 	sys_set_uheap_strategy(uint32 heapStrategy);
 int 	sys_pf_calculate_allocated_pages(void);
 
 //Semaphores
-void    block_and_schedule_next(struct Env_Queue *E);
-void     unblock_and_enqueue_ready(struct Env_Queue *E);
+void    block_and_schedule_next(struct __semdata *semdata);
+void     unblock_and_enqueue_ready(struct __semdata *semdata);
 
 
 //Sharing
