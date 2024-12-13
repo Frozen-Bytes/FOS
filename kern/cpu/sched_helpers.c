@@ -710,15 +710,20 @@ void env_set_priority(int envID, int priority)
 
 	assert(proc);
 	
-	if (proc->priority == priority) {
-		return;
+	// might be better to use a sleep lock here
+	acquire_spinlock(&ProcessQueues.qlock);
+
+	if (proc->priority != priority) {
+		if (proc->env_status == ENV_READY) {
+			sched_remove_ready(proc);
+			proc->priority = priority;
+			sched_insert_ready(proc);
+		} else {
+			proc->priority = priority;
+		}
 	}
 
-	// remove doesn't depend on priority
-	sched_remove_ready(proc);
-
-	proc->priority = priority;
-	sched_insert_ready(proc);
+	release_spinlock(&ProcessQueues.qlock);
 }
 
 void sched_set_starv_thresh(uint32 starvThresh)
