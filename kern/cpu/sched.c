@@ -390,9 +390,27 @@ void clock_interrupt_handler(struct Trapframe* tf)
 	if (isSchedMethodPRIRR())
 	{
 		//TODO: [PROJECT'24.MS3 - #09] [3] PRIORITY RR Scheduler - clock_interrupt_handler
-		//Your code is here
-		//Comment the following line
-		panic("Not implemented yet");
+		
+		struct Env *env;
+		
+		// would be better to use a sleep lock here
+		acquire_spinlock(&ProcessQueues.qlock);
+
+		// Start from priority = 1 since if I promote in priority 0 it will fly
+		for (int priority = 1; priority < num_of_ready_queues; priority++) {
+			LIST_FOREACH(env, &ProcessQueues.env_ready_queues[priority])
+			{
+				if (env->age > starvation_threshold) {
+					env_set_priority(env->env_id, priority - 1);
+					env->age = 0;
+				}
+				else {
+					env->age++;
+				}
+			}
+		}
+
+		release_spinlock(&ProcessQueues.qlock);
 	}
 
 

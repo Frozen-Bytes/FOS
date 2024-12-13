@@ -186,6 +186,9 @@ struct Env {
 	uint32 uheap_start;
 	uint32 uheap_break;
 	uint32 uheap_limit;
+
+	// For priority promotion in priority scheduler MS3
+	uint32 age;
 };
 
 #define PRIORITY_LOW    		1

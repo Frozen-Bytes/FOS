@@ -1049,6 +1049,9 @@ void initialize_environment(struct Env* e, uint32* ptr_user_page_directory, unsi
 	e->nPageOut = 0;
 	e->nNewPageAdded = 0;
 
+	// For priority promotion in priority scheduler MS3
+	e->age = 0;
+
 	//e->shared_free_address = USER_SHARED_MEM_START;
 
 	//[PROJECT'24.DONE] call initialize_uheap_dynamic_allocator(...)
