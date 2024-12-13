@@ -78,7 +78,7 @@ struct Command commands[] =
 		/* COMMANDS WITH THREE ARGUMENTS */
 		//********************************//
 		{ "rub", "reads block of bytes from specific location in given environment" ,command_readuserblock, 3},
-		{ "schedPRIRR", "switch and initializes the schedular to PRIORITY RR", command_sched_init_PRIRR, 3},
+		{ "schedPRIRR", "switch and initializes the scheduler to PRIORITY RR", command_sched_init_PRIRR, 3},
 		//TODO: [PROJECT'24.MS3 - #07] [3] PRIORITY RR Scheduler - initialize command
 
 		//**************************************//
