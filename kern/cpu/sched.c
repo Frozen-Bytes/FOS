@@ -1,4 +1,5 @@
 #include "sched.h"
+#include "inc/environment_definitions.h"
 
 #include <inc/assert.h>
 
@@ -360,23 +361,24 @@ struct Env* fos_scheduler_PRIRR()
 	//Comment the following line
 	// panic("Not implemented yet");
 	
+	struct Env *to_add = NULL;
 	struct Env* cur_env = get_cpu_proc();
 
-	if(cur_env)
-		enqueue(&ProcessQueues.env_ready_queues[cur_env->priority], cur_env);
+	if (cur_env) {
+		sched_insert_ready(cur_env);
+	}
 
-	for (int priority = num_of_ready_queues - 1; priority >= 0; priority--)
-	{
+	for (int priority = 0; priority < num_of_ready_queues; priority++) {
 		if(!LIST_EMPTY(&ProcessQueues.env_ready_queues[priority])) {
-			
-			struct Env *to_add = dequeue(&ProcessQueues.env_ready_queues[priority]);
-			// set_cpu_proc(to_add); NOT SURE
-			kclock_set_quantum(quantums[0]);
-			return to_add;
+			to_add = dequeue(&ProcessQueues.env_ready_queues[priority]);
+			to_add->env_status = ENV_UNKNOWN;
+			break;
 		}
 	}
+
+	kclock_set_quantum(quantums[0]);
 	
-	return NULL;
+	return to_add;
 }
 
 //========================================
