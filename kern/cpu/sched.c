@@ -248,17 +248,25 @@ void sched_init_PRIRR(uint8 numOfPriorities, uint8 quantum, uint32 starvThresh)
 {
 	//TODO: [PROJECT'24.MS3 - #07] [3] PRIORITY RR Scheduler - sched_init_PRIRR
 	//Your code is here
+	
+	quantums = kmalloc(sizeof(uint8));
+	quantums[0] = quantum;
+	kclock_set_quantum(quantum);
+	
+	starvation_threshold = starvThresh;
+	
+	// might be better to use a sleep lock here
+	acquire_spinlock(&ProcessQueues.qlock);
+
 	num_of_ready_queues = numOfPriorities;
 	ProcessQueues.env_ready_queues = kmalloc(num_of_ready_queues * 
 											sizeof(struct Env_Queue));
-	quantums = kmalloc(num_of_ready_queues * sizeof(uint8));
-	kclock_set_quantum(quantum);
-	starvation_threshold = starvThresh;
-	
+										
 	for(int i = 0; i < num_of_ready_queues ; i++) {
-		init_queue(&(ProcessQueues.env_ready_queues[i]));
-		quantums[i] = quantum;
+		init_queue(&(ProcessQueues.env_ready_queues[i]));	
 	}
+
+	release_spinlock(&ProcessQueues.qlock);
 	//=========================================
 	//DON'T CHANGE THESE LINES=================
 	uint16 cnt0 = kclock_read_cnt0_latch() ; //read after write to ensure it's set to the desired value
