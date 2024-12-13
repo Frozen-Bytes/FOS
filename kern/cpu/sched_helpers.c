@@ -711,7 +711,11 @@ void env_set_priority(int envID, int priority)
 	assert(proc);
 	
 	// might be better to use a sleep lock here
-	acquire_spinlock(&ProcessQueues.qlock);
+	bool is_holding_lock = holding_spinlock(&ProcessQueues.qlock);
+
+	if (!is_holding_lock) {
+		acquire_spinlock(&ProcessQueues.qlock);
+	}
 
 	if (proc->priority != priority) {
 		if (proc->env_status == ENV_READY) {
@@ -723,7 +727,9 @@ void env_set_priority(int envID, int priority)
 		}
 	}
 
-	release_spinlock(&ProcessQueues.qlock);
+	if (!is_holding_lock) {
+		release_spinlock(&ProcessQueues.qlock);
+	}
 }
 
 void sched_set_starv_thresh(uint32 starvThresh)
