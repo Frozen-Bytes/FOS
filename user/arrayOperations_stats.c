@@ -2,7 +2,7 @@
 
 //Functions Declarations
 void Swap(int *Elements, int First, int Second);
-void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var, int *min, int *max, int *med);
+void ArrayStats(int *Elements, int NumOfElements, int64 *mean, int64 *var, int *min, int *max, int *med);
 int KthElement(int *Elements, int NumOfElements, int k);
 int QSort(int *Elements,int NumOfElements, int startIndex, int finalIndex, int kIndex);
 
@@ -20,6 +20,10 @@ void _main(void)
 	wait_semaphore(ready);
 
 	/*[3] GET SHARED VARs*/
+	//Get the cons_mutex ownerID
+	int* consMutexOwnerID = sget(parentenvID, "cons_mutex ownerID") ;
+	struct semaphore cons_mutex = get_semaphore(*consMutexOwnerID, "Console Mutex");
+
 	//Get the shared array & its size
 	int *numOfElements = NULL;
 	int *sharedArray = NULL;
@@ -27,8 +31,8 @@ void _main(void)
 	numOfElements = sget(parentenvID,"arrSize") ;
 
 	/*[4] DO THE JOB*/
-	int mean;
-	int var ;
+	int64 mean;
+	int64 var ;
 	int min ;
 	int max ;
 	int med ;
@@ -43,15 +47,28 @@ void _main(void)
 	}
 
 	ArrayStats(tmpArray ,*numOfElements, &mean, &var, &min, &max, &med);
-	cprintf("Stats Calculations are Finished!!!!\n") ;
+
+	wait_semaphore(cons_mutex);
+	{
+		cprintf("Stats Calculations are Finished!!!!\n") ;
+		cprintf("will share the rsults & notify the master now...\n");
+	}
+	signal_semaphore(cons_mutex);
 
 	/*[3] SHARE THE RESULTS & DECLARE FINISHING*/
-	int *shMean, *shVar, *shMin, *shMax, *shMed;
-	shMean = smalloc("mean", sizeof(int), 0) ; *shMean = mean;
-	shVar = smalloc("var", sizeof(int), 0) ; *shVar = var;
+	int64 *shMean, *shVar;
+	int *shMin, *shMax, *shMed;
+	shMean = smalloc("mean", sizeof(int64), 0) ; *shMean = mean;
+	shVar = smalloc("var", sizeof(int64), 0) ; *shVar = var;
 	shMin = smalloc("min", sizeof(int), 0) ; *shMin = min;
 	shMax = smalloc("max", sizeof(int), 0) ; *shMax = max;
 	shMed = smalloc("med", sizeof(int), 0) ; *shMed = med;
+
+	wait_semaphore(cons_mutex);
+	{
+		cprintf("Stats app says GOOD BYE :)\n") ;
+	}
+	signal_semaphore(cons_mutex);
 
 	signal_semaphore(finished);
 
@@ -78,7 +95,7 @@ int QSort(int *Elements,int NumOfElements, int startIndex, int finalIndex, int k
 	while (i <= j)
 	{
 		while (i <= finalIndex && Elements[startIndex] >= Elements[i]) i++;
-		while (j > startIndex && Elements[startIndex] <= Elements[j]) j--;
+		while (j > startIndex && Elements[startIndex] < Elements[j]) j--;
 
 		if (i <= j)
 		{
@@ -96,7 +113,7 @@ int QSort(int *Elements,int NumOfElements, int startIndex, int finalIndex, int k
 		return QSort(Elements, NumOfElements, i, finalIndex, kIndex);
 }
 
-void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var, int *min, int *max, int *med)
+void ArrayStats(int *Elements, int NumOfElements, int64 *mean, int64 *var, int *min, int *max, int *med)
 {
 	int i ;
 	*mean =0 ;
@@ -121,7 +138,7 @@ void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var, int *min,
 	(*var) = 0;
 	for (i = 0 ; i < NumOfElements ; i++)
 	{
-		(*var) += (Elements[i] - (*mean))*(Elements[i] - (*mean));
+		(*var) += (int64)((Elements[i] - (*mean))*(Elements[i] - (*mean)));
 	}
 	(*var) /= NumOfElements;
 }

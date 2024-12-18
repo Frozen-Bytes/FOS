@@ -21,6 +21,10 @@ void _main(void)
 	wait_semaphore(ready);
 
 	/*[3] GET SHARED VARs*/
+	//Get the cons_mutex ownerID
+	int* consMutexOwnerID = sget(parentenvID, "cons_mutex ownerID") ;
+	struct semaphore cons_mutex = get_semaphore(*consMutexOwnerID, "Console Mutex");
+
 	//Get the shared array & its size
 	int *numOfElements = NULL;
 	int *sharedArray = NULL;
@@ -37,11 +41,17 @@ void _main(void)
 		sortedArray[i] = sharedArray[i];
 	}
 	QuickSort(sortedArray, *numOfElements);
-	cprintf("Quick sort is Finished!!!!\n") ;
+
+	wait_semaphore(cons_mutex);
+	{
+		cprintf("Quick sort is Finished!!!!\n") ;
+		cprintf("will notify the master now...\n");
+		cprintf("Quick sort says GOOD BYE :)\n") ;
+	}
+	signal_semaphore(cons_mutex);
 
 	/*[5] DECLARE FINISHING*/
 	signal_semaphore(finished);
-
 }
 
 ///Quick sort

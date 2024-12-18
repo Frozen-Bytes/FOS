@@ -2,10 +2,10 @@
 #include <inc/lib.h>
 
 void InitializeAscending(int *Elements, int NumOfElements);
-void InitializeIdentical(int *Elements, int NumOfElements);
+void InitializeDescending(int *Elements, int NumOfElements);
 void InitializeSemiRandom(int *Elements, int NumOfElements);
 uint32 CheckSorted(int *Elements, int NumOfElements);
-void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var);
+void ArrayStats(int *Elements, int NumOfElements, int64 *mean, int64 *var);
 
 void
 _main(void)
@@ -29,7 +29,11 @@ _main(void)
 	sys_run_env(envIdMergeSort);
 	sys_run_env(envIdStats);
 
-	/*[3] CREATE SHARED ARRAY*/
+	/*[3] CREATE SHARED VARIABLES*/
+	//Share the cons_mutex owner ID
+	int *mutexOwnerID = smalloc("cons_mutex ownerID", sizeof(int) , 0) ;
+	*mutexOwnerID = myEnv->env_id ;
+
 	int ret;
 	char Chose;
 	char Line[30];
@@ -75,7 +79,7 @@ _main(void)
 		InitializeAscending(Elements, NumOfElements);
 		break ;
 	case 'b':
-		InitializeIdentical(Elements, NumOfElements);
+		InitializeDescending(Elements, NumOfElements);
 		break ;
 	case 'c':
 		InitializeSemiRandom(Elements, NumOfElements);
@@ -97,8 +101,8 @@ _main(void)
 	/*[6] GET THEIR RESULTS*/
 	int *quicksortedArr = NULL;
 	int *mergesortedArr = NULL;
-	int *mean = NULL;
-	int *var = NULL;
+	int64 *mean = NULL;
+	int64 *var = NULL;
 	int *min = NULL;
 	int *max = NULL;
 	int *med = NULL;
@@ -115,17 +119,24 @@ _main(void)
 	if(sorted == 0) panic("The array is NOT quick-sorted correctly") ;
 	sorted = CheckSorted(mergesortedArr, NumOfElements);
 	if(sorted == 0) panic("The array is NOT merge-sorted correctly") ;
-	int correctMean, correctVar ;
+	int64 correctMean, correctVar ;
 	ArrayStats(Elements, NumOfElements, &correctMean , &correctVar);
 	int correctMin = quicksortedArr[0];
 	int last = NumOfElements-1;
-	int middle = (NumOfElements-1)/2;
+//	int middle = (NumOfElements-1)/2;
+//	if (NumOfElements % 2 != 0)
+//		middle--;
+	int middle = NumOfElements/2 - 1; /*-1 to make it ZERO-Based*/
+
 	int correctMax = quicksortedArr[last];
 	int correctMed = quicksortedArr[middle];
-	//cprintf("Array is correctly sorted\n");
-	//cprintf("mean = %d, var = %d\nmin = %d, max = %d, med = %d\n", *mean, *var, *min, *max, *med);
-	//cprintf("mean = %d, var = %d\nmin = %d, max = %d, med = %d\n", correctMean, correctVar, correctMin, correctMax, correctMed);
-
+	wait_semaphore(cons_mutex);
+	{
+		//cprintf("Array is correctly sorted\n");
+		cprintf("mean = %lld, var = %lld, min = %d, max = %d, med = %d\n", *mean, *var, *min, *max, *med);
+		cprintf("mean = %lld, var = %lld, min = %d, max = %d, med = %d\n", correctMean, correctVar, correctMin, correctMax, correctMed);
+	}
+	signal_semaphore(cons_mutex);
 	if(*mean != correctMean || *var != correctVar|| *min != correctMin || *max != correctMax || *med != correctMed)
 		panic("The array STATS are NOT calculated correctly") ;
 
@@ -160,7 +171,7 @@ void InitializeAscending(int *Elements, int NumOfElements)
 
 }
 
-void InitializeIdentical(int *Elements, int NumOfElements)
+void InitializeDescending(int *Elements, int NumOfElements)
 {
 	int i ;
 	for (i = 0 ; i < NumOfElements ; i++)
@@ -182,7 +193,7 @@ void InitializeSemiRandom(int *Elements, int NumOfElements)
 
 }
 
-void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var)
+void ArrayStats(int *Elements, int NumOfElements, int64 *mean, int64 *var)
 {
 	int i ;
 	*mean =0 ;
@@ -194,7 +205,9 @@ void ArrayStats(int *Elements, int NumOfElements, int *mean, int *var)
 	*var = 0;
 	for (i = 0 ; i < NumOfElements ; i++)
 	{
-		*var += (Elements[i] - *mean)*(Elements[i] - *mean);
+		*var += (int64) ((Elements[i] - *mean)*(Elements[i] - *mean));
+//		if (i%1000 == 0)
+//			cprintf("current #elements = %d, current var = %lld\n", i , *var);
 	}
 	*var /= NumOfElements;
 }
