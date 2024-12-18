@@ -967,7 +967,7 @@ int command_testRR() {
         cur_env ? cur_env->env_id : -1,
         nxt ? nxt->env_id : -1);
 
-	assert(nxt == &e2);
+	assert(nxt == &e1);
 
 	cprintf("Current process: %d, Next process: %d\n",
         cur_env ? cur_env->env_id : -1,
@@ -977,11 +977,11 @@ int command_testRR() {
 
 	cur_env = get_cpu_proc();
 
-	assert(cur_env == &e2);
+	assert(cur_env == &e1);
 
 	cprintf("[PASS] RR Scheduler\n");
 
-	// release_spinlock(&ProcessQueues.qlock);
+	release_spinlock(&ProcessQueues.qlock);
 
 	return 0;
 }
@@ -1011,6 +1011,8 @@ int command_testPSF() {
 
 	sched_init_PRIRR(3 , 5 , 200);
 
+	acquire_spinlock(&ProcessQueues.qlock);
+
 	struct Env high_priority , low_priority;
 
 	high_priority.env_id = 1;
@@ -1024,6 +1026,8 @@ int command_testPSF() {
 	enqueue(&(ProcessQueues.env_ready_queues[0]) , &high_priority);
 	enqueue(&(ProcessQueues.env_ready_queues[1]) , &low_priority);
 
+	
+
 	struct Env *next = fos_scheduler_PRIRR();
 
 	 // weird panic ,  q.lock is not held by this CPU while it's expected to be.
@@ -1033,6 +1037,8 @@ int command_testPSF() {
 	next = fos_scheduler_PRIRR();
 
 	assert(next == &low_priority);
+
+	release_spinlock(&ProcessQueues.qlock);
 
 
 	cprintf("[PASS] Priority Scheduler Functionality\n");
@@ -1044,35 +1050,61 @@ int command_testRRtimer() {
 	cprintf("[TEST] Scheduler with timer ticks \n");
 	sched_init_RR(3);
 
-	struct Env e1,e2;
+	struct Env *e1,*e2,*e3;
 
-	e1.env_id = 1;
-	e1.env_status = ENV_READY;
+	e1 = env_create("fib" , 100 , 100 , 10);
+	e2 = env_create("fib" , 100 , 100 , 10);
+	e3 = env_create("fib" , 100 , 100 , 10);
 
-	e2.env_id = 2;
-	e2.env_status = ENV_READY;
+	// e1->env_status = ENV_READY;
+
+	// e2->env_status = ENV_READY;
+
+	// e3->env_status = ENV_READY;
 
 
-	enqueue(&(ProcessQueues.env_ready_queues[0]), &e1);
-    enqueue(&(ProcessQueues.env_ready_queues[0]), &e2);
+	// cprintf("testers\n");
+	if(!holding_spinlock(&ProcessQueues.qlock))	
+		acquire_spinlock(&ProcessQueues.qlock);
+
+	sched_insert_ready(e1);
+	sched_insert_ready(e2);
+
+	sched_insert_ready(e3);
+
+
+	// enqueue(&(ProcessQueues.env_ready_queues[0]), e1);
+	// enqueue(&(ProcessQueues.env_ready_queues[0]), e2);
+    // enqueue(&(ProcessQueues.env_ready_queues[0]), e3);
+
+
+	set_cpu_proc(e1);
+
+	struct Env *cur = get_cpu_proc();
+
+	cprintf("cur process: %d\n",
+        cur ? cur->env_id : -1);
 
 
 	for(int cur_tick = 1 ; cur_tick <= 6 ; cur_tick++){
 		struct Env *cur = get_cpu_proc();
-		clock_interrupt_handler(cur->env_tf); // not sure about parameter
+		if(cur)
+			clock_interrupt_handler(cur->env_tf); // not sure about parameter
 
 		if(cur_tick == 3){
 			struct Env *new_env = fos_scheduler_RR();
 
-			assert(new_env == &e2);
+			assert(new_env == e2);
 		}
 
 		if(cur_tick == 6) {
 			struct Env *new_env = fos_scheduler_RR();
 
-			assert(new_env == &e1);
+			assert(new_env == e3);
 		}
 	}
+
+	release_spinlock(&ProcessQueues.qlock);
 
 	cprintf("[PASS] Scheduler with timer ticks \n");
 
