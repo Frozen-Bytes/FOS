@@ -95,6 +95,10 @@ struct Command commands[] =
 		/*               HELPERS                */
 		//**************************************//
 		{"clear", "clears the screen content", command_clear, 0},
+		{"testRR" , "tests RR" , command_testRR,0},
+		{"testPSI" , "tests initialization for priority scheduler" , command_testPSI,0},
+		{"testPSF" , "tests functionality for priority scheduler" , command_testPSF,0},
+		{"testRRtimer" , "tests functionality  of scheduler with timer ricks" , command_testRRtimer,0},
 };
 
 //Number of commands = size of the array / size of command structure
@@ -933,5 +937,144 @@ int command_tst(int number_of_arguments, char **arguments)
 int command_clear(int number_of_arguments, char **arguments)
 {
 	clear_screen_buffer();
+	return 0;
+}
+
+// was just seeing how tests would work , ignore this
+int command_testRR() {
+
+	cprintf("[TEST] Round Robin \n");
+	// sched_init(); - > already called from fos intialize
+	acquire_spinlock(&ProcessQueues.qlock); // -> works for one run only otherwise it messes stuff up
+	// fos_scheduler(); - > some weird stuff happens (not sure if it should be called)
+	struct Env e1 , e2 , e3;
+	e1.env_id = 1;
+	e2.env_id = 2;
+	e3.env_id = 3;
+
+	e1.env_status = ENV_READY;
+	e2.env_status = ENV_READY;
+	e3.env_status = ENV_READY;
+
+	enqueue(&ProcessQueues.env_ready_queues[0] , &e1);
+	enqueue(&ProcessQueues.env_ready_queues[0] , &e2);
+	enqueue(&ProcessQueues.env_ready_queues[0] , &e3);
+
+	struct Env *nxt = fos_scheduler_RR();
+	struct Env* cur_env = get_cpu_proc();
+
+	cprintf("Current process: %d, Next process: %d\n",
+        cur_env ? cur_env->env_id : -1,
+        nxt ? nxt->env_id : -1);
+
+	assert(nxt == &e2);
+
+	cprintf("Current process: %d, Next process: %d\n",
+        cur_env ? cur_env->env_id : -1,
+        nxt ? nxt->env_id : -1);
+
+	set_cpu_proc(nxt);
+
+	cur_env = get_cpu_proc();
+
+	assert(cur_env == &e2);
+
+	cprintf("[PASS] RR Scheduler\n");
+
+	// release_spinlock(&ProcessQueues.qlock);
+
+	return 0;
+}
+
+
+
+int command_testPSI() {
+	cprintf("[TEST] Priority Scheduler Initialization \n");
+
+	sched_init_PRIRR(3 , 5 , 200);
+
+	assert(num_of_ready_queues == 3);
+
+	assert(ProcessQueues.env_ready_queues != NULL);
+
+	assert(scheduler_method == SCH_PRIRR);
+
+
+	cprintf("[PASS] Priority Scheduler Initialization\n");
+
+	return 0;
+}
+
+int command_testPSF() {
+	cprintf("[TEST] Priority Scheduler Functionality \n");
+
+
+	sched_init_PRIRR(3 , 5 , 200);
+
+	struct Env high_priority , low_priority;
+
+	high_priority.env_id = 1;
+	high_priority.env_id = ENV_READY;
+	high_priority.priority = 0;
+
+	low_priority.env_id = 2;
+	low_priority.env_id = ENV_READY;
+	low_priority.priority = 1;
+
+	enqueue(&(ProcessQueues.env_ready_queues[0]) , &high_priority);
+	enqueue(&(ProcessQueues.env_ready_queues[1]) , &low_priority);
+
+	struct Env *next = fos_scheduler_PRIRR();
+
+	 // weird panic ,  q.lock is not held by this CPU while it's expected to be.
+
+	assert(next == &high_priority);
+
+	next = fos_scheduler_PRIRR();
+
+	assert(next == &low_priority);
+
+
+	cprintf("[PASS] Priority Scheduler Functionality\n");
+
+	return 0;
+}
+
+int command_testRRtimer() {
+	cprintf("[TEST] Scheduler with timer ticks \n");
+	sched_init_RR(3);
+
+	struct Env e1,e2;
+
+	e1.env_id = 1;
+	e1.env_status = ENV_READY;
+
+	e2.env_id = 2;
+	e2.env_status = ENV_READY;
+
+
+	enqueue(&(ProcessQueues.env_ready_queues[0]), &e1);
+    enqueue(&(ProcessQueues.env_ready_queues[0]), &e2);
+
+
+	for(int cur_tick = 1 ; cur_tick <= 6 ; cur_tick++){
+		struct Env *cur = get_cpu_proc();
+		clock_interrupt_handler(cur->env_tf); // not sure about parameter
+
+		if(cur_tick == 3){
+			struct Env *new_env = fos_scheduler_RR();
+
+			assert(new_env == &e2);
+		}
+
+		if(cur_tick == 6) {
+			struct Env *new_env = fos_scheduler_RR();
+
+			assert(new_env == &e1);
+		}
+	}
+
+	cprintf("[PASS] Scheduler with timer ticks \n");
+
 	return 0;
 }

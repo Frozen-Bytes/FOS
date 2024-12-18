@@ -104,4 +104,12 @@ int command_sched_init_PRIRR(int number_of_arguments, char **arguments);
 // helpers
 int command_clear(int number_of_arguments, char **arguments);
 
+int command_testRR();
+
+int command_testPSI();
+
+int command_testPSF();
+
+int command_testRRtimer();
+
 #endif /* KERN_CMD_COMMANDS_H_ */
