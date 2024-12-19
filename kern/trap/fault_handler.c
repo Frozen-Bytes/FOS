@@ -261,7 +261,9 @@ page_ws_list_insert_element(struct Env * faulted_env, uint32 fault_va) {
 
     if (faulted_env->page_last_WS_element == NULL) {
 	    LIST_INSERT_TAIL(&(faulted_env->page_WS_list), new_element);
-		faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_list));
+		if(LIST_SIZE(&(faulted_env->page_WS_list)) == faulted_env->page_WS_max_size) {
+			faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_list));
+		}
 	} else {
 		LIST_INSERT_BEFORE(&(faulted_env->page_WS_list), faulted_env->page_last_WS_element, new_element);
 	}
