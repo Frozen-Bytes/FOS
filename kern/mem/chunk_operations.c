@@ -121,20 +121,6 @@ uint32 calculate_required_frames(uint32* page_directory, uint32 sva, uint32 size
 //=====================================
 /* DYNAMIC ALLOCATOR SYSTEM CALLS */
 //=====================================
-void
-lazy_allocate_page(uint32 start_page , uint32 size , struct Env* env)
-{
-    uint32 end_page = start_page + ROUNDUP(size, PAGE_SIZE);
-
-	for (uint32 va = start_page; va < end_page; va += PAGE_SIZE) {
-		uint32 *page_table = NULL;
-	    struct FrameInfo *frame_info = get_frame_info(env->env_page_directory, va, &page_table);
-		if(page_table == NULL) {
-			create_page_table(env->env_page_directory, va);
-		}
-		pt_set_page_permissions(env->env_page_directory, va, PERM_USER_MARKED, 0);
-	}
-}
 
 void* sys_sbrk(int numOfPages)
 {
@@ -169,13 +155,9 @@ void* sys_sbrk(int numOfPages)
 		return (void*)-1;
 	}
     
-	uint32 start_page = env->uheap_break;
-	lazy_allocate_page(start_page, new_added_size, env);
-	env->uheap_break = new_break;
-
-	// update the END BLOCK
-	uint32 *end_block = (uint32*)(env->uheap_break - sizeof(uint32));
-	*end_block = 1;
+	uint32 start_page = ROUNDUP(env->uheap_break, PAGE_SIZE);
+	allocate_user_mem(env, start_page, new_added_size);
+	env->uheap_break = ROUNDUP(new_break, PAGE_SIZE);
 
 	return (void*)(start_page);
 

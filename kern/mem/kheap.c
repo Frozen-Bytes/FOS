@@ -135,9 +135,6 @@ void* sbrk(int numOfPages)
 
 	uint32 old_break = kheap_break;
 	kheap_break = new_break;
-	// update the END BLOCK
-	uint32 *end_block = (uint32*)(kheap_break - sizeof(uint32));
-	*end_block = 1;
 
 	return (void*)(old_break);
 }
