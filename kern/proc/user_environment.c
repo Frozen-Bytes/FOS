@@ -493,7 +493,7 @@ void env_free(struct Env *e)
 	uint32 *ptr_page_table;
 	uint8 is_empty;
 
-	// first thing first bruv free all the pages in the page working set
+	// All pages in the page working set
 	LIST_FOREACH(working_set_element_iterator, &(e->page_WS_list)){
 		ptr_page_table = NULL;
 		is_empty = 1;
@@ -501,7 +501,8 @@ void env_free(struct Env *e)
 		get_page_table(e->env_page_directory, working_set_element_iterator->virtual_address, &ptr_page_table);
 		LIST_REMOVE(&(e->page_WS_list), working_set_element_iterator);
 		unmap_frame(e->env_page_directory, working_set_element_iterator->virtual_address);
-
+		
+		// check the page table
 		for (int page_table_index = 0; page_table_index < 1024; page_table_index++){
 			if(ptr_page_table[page_table_index] != 0){
 				is_empty = 0;
@@ -519,12 +520,12 @@ void env_free(struct Env *e)
 		kfree(working_set_element_iterator);
 	}
 
-	// ok but hear me out what if there was remaining pages in the user memory that wasn't in the working set LIKE HOW WE DO IN THE FREE_USER_MEM
+	// free any remaining pages that was not in the working set
 	for (uint32 virtual_address = USER_HEAP_START; virtual_address < USER_HEAP_MAX; virtual_address += PAGE_SIZE){
 		unmap_frame(e->env_page_directory, virtual_address);
 	}
 
-	// remaining page tables
+	// check for any remaining page tables
 	ptr_page_table = NULL;
 	for (uint32 page_table_virtual_address = USER_HEAP_START; page_table_virtual_address < USER_HEAP_MAX; page_table_virtual_address += PAGE_SIZE * 1024){
 		
@@ -536,8 +537,10 @@ void env_free(struct Env *e)
 		}
 	}
 
+	// remove the User kernel stack
 	delete_user_kern_stack(e);
 
+	// ALL shared objects (if any) & ALL semaphores (if any)
 	acquire_spinlock(&(AllShares.shareslock));
 	struct Share *share_list_iterator = NULL;
 
@@ -554,6 +557,7 @@ void env_free(struct Env *e)
 	
 	release_spinlock(&(AllShares.shareslock));
 
+	// free the Directory table
 	kfree(e->env_page_directory);
 
 	// [9] remove this program from the page file
