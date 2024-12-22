@@ -319,3 +319,13 @@ void sys_allocate_user_mem(uint32 virtual_address, uint32 size)
 
 	syscall(SYS_allocate_user_mem, virtual_address, size, 0, 0, 0);
 }
+
+void block_and_schedule_next(struct __semdata *semdata)
+{
+	syscall(SYS_PROCESS_BLOCKED_SCHED, (uint32)semdata, 0, 0, 0, 0);
+}
+
+void unblock_and_enqueue_ready(struct __semdata *semdata)
+{
+	syscall(SYS_UNBLOCK_AND_ENQUEUE_READY, (uint32)semdata, 0, 0, 0, 0);
+}

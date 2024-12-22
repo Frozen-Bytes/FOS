@@ -10,6 +10,7 @@
 #define PTE_KERN (PERM_PRESENT | PERM_USED | PERM_WRITEABLE)
 #define NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES ((KERNEL_HEAP_MAX - PAGE_ALLOCATOR_START) / PAGE_SIZE)
 
+struct spinlock block_allocator_lock;
 static struct HeapBlock heap_blocks[NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES];
 
 struct HeapBlock* to_heap_block(uint32 va);
@@ -70,8 +71,8 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 	first_blk->page_count = NUM_OF_KHEAP_PAGE_ALLOCATOR_PAGES;
 	first_blk->start_va = PAGE_ALLOCATOR_START;
 
-	LIST_INIT(&free_blocks_list);
-	LIST_INSERT_HEAD(&free_blocks_list, first_blk);
+	LIST_INIT(&free_heap_blocks_list);
+	LIST_INSERT_HEAD(&free_heap_blocks_list, first_blk);
 
 	// allocate all pages in the given range
 	for (uint32 va = kheap_start; va < kheap_break; va += PAGE_SIZE) {
@@ -81,6 +82,7 @@ int initialize_kheap_dynamic_allocator(uint32 daStart, uint32 initSizeToAllocate
 		}
 	}
 
+	init_spinlock(&block_allocator_lock, "Block Allocator Lock");
 	initialize_dynamic_allocator(daStart, initSizeToAllocate);
 	return 0;
 }
@@ -133,9 +135,6 @@ void* sbrk(int numOfPages)
 
 	uint32 old_break = kheap_break;
 	kheap_break = new_break;
-	// update the END BLOCK
-	uint32 *end_block = (uint32*)(kheap_break - sizeof(uint32));
-	*end_block = 1;
 
 	return (void*)(old_break);
 }
@@ -151,12 +150,24 @@ void* kmalloc(unsigned int size)
 	// use "isKHeapPlacementStrategyFIRSTFIT() ..." functions to check the current strategy
 
     if (size <= DYN_ALLOC_MAX_BLOCK_SIZE) {
-		return alloc_block_FF(size);
+	    bool is_holding_block_lock = holding_spinlock(&block_allocator_lock);
+
+	    if (!is_holding_block_lock) {
+		    acquire_spinlock(&block_allocator_lock);
+	    }
+
+	    void* va = alloc_block_FF(size);
+
+	    if (!is_holding_block_lock) {
+		    release_spinlock(&block_allocator_lock);
+	    }
+
+	    return va;
 	}
 
-	bool is_holding_lock = holding_spinlock(&MemFrameLists.mfllock);
+	bool is_holding_page_lock = holding_spinlock(&MemFrameLists.mfllock);
 
-	if (!is_holding_lock) {
+	if (!is_holding_page_lock) {
 		acquire_spinlock(&MemFrameLists.mfllock);
 	}
 
@@ -164,7 +175,7 @@ void* kmalloc(unsigned int size)
 	uint32 required_pages = ROUNDUP(size , PAGE_SIZE) / PAGE_SIZE;
 	struct HeapBlock* blk = NULL;
 
-	LIST_FOREACH(blk , &free_blocks_list) {
+	LIST_FOREACH(blk , &free_heap_blocks_list) {
 		if (blk->page_count >= required_pages) { break; }
 	}
 
@@ -178,18 +189,18 @@ void* kmalloc(unsigned int size)
 
 	struct HeapBlock* new_blk = split_heap_block(blk , required_pages);
 	if (new_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, blk, new_blk);
+		LIST_INSERT_AFTER(&free_heap_blocks_list, blk, new_blk);
 	}
-	LIST_REMOVE(&free_blocks_list, blk);
+	LIST_REMOVE(&free_heap_blocks_list, blk);
 
-    if (!is_holding_lock) {
+    if (!is_holding_page_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
 
 	return (void*) blk->start_va;
 
 error_return:
-   	 if (!is_holding_lock) {
+   	 if (!is_holding_page_lock) {
 		release_spinlock(&MemFrameLists.mfllock);
 	}
 	return NULL;
@@ -215,7 +226,9 @@ void kfree(void* virtual_address)
 				        ((uint32) virtual_address < KERNEL_HEAP_MAX);
 
 	if (is_blk_addr) {
+		acquire_spinlock(&block_allocator_lock);
 		free_block(virtual_address);
+		release_spinlock(&block_allocator_lock);
 	} else if (is_page_addr) {
 		acquire_spinlock(&MemFrameLists.mfllock);
 
@@ -331,7 +344,11 @@ void *krealloc(void *virtual_address, uint32 new_size)
 
     // the new and old bolcks in Block Allocator Area
 	if ((new_size <= DYN_ALLOC_MAX_BLOCK_SIZE) && (old_size <= DYN_ALLOC_MAX_BLOCK_SIZE)){
-		return realloc_block_FF(virtual_address, new_size);
+		acquire_spinlock(&block_allocator_lock);
+		void* va = realloc_block_FF(virtual_address, new_size);
+		release_spinlock(&block_allocator_lock);
+
+		return va;
 	}
 
     // one size is in Block Allocator Area and the other is in Page Allocator Area
@@ -446,9 +463,9 @@ kexpand_block(uint32 va, uint32 required_pages)
 
 	struct HeapBlock* new_next_blk = split_heap_block(next_blk , required_pages - allocated_pages);
 	if (new_next_blk) {
-		LIST_INSERT_AFTER(&free_blocks_list, next_blk, new_next_blk);
+		LIST_INSERT_AFTER(&free_heap_blocks_list, next_blk, new_next_blk);
 	}
-	LIST_REMOVE(&free_blocks_list, next_blk);
+	LIST_REMOVE(&free_heap_blocks_list, next_blk);
 	cur_blk->page_count = required_pages;
 
 	return (void *)va;
@@ -498,20 +515,20 @@ void
 insert_heap_block_sorted(struct HeapBlock* b) {
 	assert(b);
 
-	if (LIST_EMPTY(&free_blocks_list)) {
-		LIST_INSERT_HEAD(&free_blocks_list, b);
+	if (LIST_EMPTY(&free_heap_blocks_list)) {
+		LIST_INSERT_HEAD(&free_heap_blocks_list, b);
 		return;
 	}
 
 	struct HeapBlock* blk = NULL;
-	LIST_FOREACH(blk, &free_blocks_list) {
+	LIST_FOREACH(blk, &free_heap_blocks_list) {
 		if (blk->start_va > b->start_va) {
-			LIST_INSERT_BEFORE(&free_blocks_list, blk, b);
+			LIST_INSERT_BEFORE(&free_heap_blocks_list, blk, b);
 			return;
 		}
 	}
 
-	LIST_INSERT_TAIL(&free_blocks_list, b);
+	LIST_INSERT_TAIL(&free_heap_blocks_list, b);
 }
 
 void
@@ -525,14 +542,14 @@ coalescing_heap_block(struct HeapBlock* b) {
 
 	if (is_prev_free && is_next_free) {
 		prev->page_count += b->page_count + next->page_count;
-		LIST_REMOVE(&free_blocks_list, b);
-		LIST_REMOVE(&free_blocks_list, next);
+		LIST_REMOVE(&free_heap_blocks_list, b);
+		LIST_REMOVE(&free_heap_blocks_list, next);
 	} else if (is_prev_free) {
 		prev->page_count += b->page_count;
-		LIST_REMOVE(&free_blocks_list, b);
+		LIST_REMOVE(&free_heap_blocks_list, b);
 	} else if (is_next_free) {
 		b->page_count += next->page_count;
-		LIST_REMOVE(&free_blocks_list, next);
+		LIST_REMOVE(&free_heap_blocks_list, next);
 	}
 }
 
@@ -541,7 +558,7 @@ get_allocation_size(uint32 va) {
 	bool is_blk_addr = (va >= kheap_start) && (va < kheap_break);
 	bool is_page_addr = (va >= kheap_limit + PAGE_SIZE) && (va < KERNEL_HEAP_MAX);
 
-	if (!is_page_addr && !is_page_addr)	{
+	if (!is_page_addr && !is_blk_addr)	{
 		return 0;
 	}
 

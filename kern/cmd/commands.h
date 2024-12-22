@@ -96,6 +96,11 @@ int command_sch_test(int number_of_arguments, char **arguments);
 //2023
 int command_tst(int number_of_arguments, char **arguments);
 
+//2024
+int command_set_priority(int number_of_arguments, char **arguments);
+int command_set_starve_thresh(int number_of_arguments, char **arguments);
+int command_sched_init_PRIRR(int number_of_arguments, char **arguments);
+
 // helpers
 int command_clear(int number_of_arguments, char **arguments);
 

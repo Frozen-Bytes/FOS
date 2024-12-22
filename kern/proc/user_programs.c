@@ -29,6 +29,14 @@ struct UserProgramInfo userPrograms[] = {
 		{ "tst_chan_one", "Tests sleep & wakeup ONE on a channel", PTR_START_OF(tst_chan_one_master)},
 		{ "tstChanOneSlave", "Slave program of tst_chan_one", PTR_START_OF(tst_chan_one_slave)},
 		{ "mergesort", "mergesort a fixed size array of 800000", PTR_START_OF(mergesort_static)},
+		{ "tst_protection", "Tests the protection of kernel shared DS (e.g. kernel heap)", PTR_START_OF(tst_protection)},
+		{ "protection_slave1", "Slave program of tst_protection", PTR_START_OF(tst_protection_slave1)},
+
+		//[2] REPLACEMENT
+		{ "tpr1", "Tests page replacement (allocation of Memory and PageFile)", PTR_START_OF(tst_page_replacement_alloc)},
+		{ "tpr2", "tests page replacement (handling new stack and modified pages)", PTR_START_OF(tst_page_replacement_stack)},
+		{ "tnclock1", "Tests page replacement (nth clock algorithm - NORMAL version)", PTR_START_OF(tst_page_replacement_nthclock_1)},
+		{ "tnclock2", "Tests page replacement (nth clock algorithm - MODIFIED version)", PTR_START_OF(tst_page_replacement_nthclock_2)},
 
 		/*TESTING 2023*/
 		//[1] READY MADE TESTS

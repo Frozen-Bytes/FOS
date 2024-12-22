@@ -61,7 +61,7 @@ void pt_clear_page_table_entry(uint32* page_directory, uint32 virtual_address)
 	//[2] If exists, update permissions
 	if (ptr_page_table != NULL)
 	{
-		cprintf("va=%x before clearing has perm = %x\n", virtual_address, ptr_page_table[PTX(virtual_address)]);
+		//cprintf("va=%x before clearing has perm = %x\n", virtual_address, ptr_page_table[PTX(virtual_address)]);
 		ptr_page_table[PTX(virtual_address)] = 0;
 	}
 	//[3] Else, should "panic" since the table should be exist

@@ -459,17 +459,108 @@ void env_start(void)
 // 3) FREE ENV FROM THE SYSTEM:
 //===============================
 // Frees environment "e" and all memory it uses.
+
+/*
+	2. Free the Entire Process (env_free) V.2 (including shared & semaphores)
+All pages in the page working set
+Working set itself
+ALL shared objects (if any)
+ALL semaphores (if any)
+All page tables in the entire user virtual memory
+Directory table
+User kernel stack
+All pages from page file, this code is already written for you ï�Š
+
+
+*/
 //
 void env_free(struct Env *e)
 {
 	/*REMOVE THIS LINE BEFORE START CODING*/
-	return;
+	// return;
 	/**************************************/
 
 	//[PROJECT'24.MS3] BONUS [EXIT ENV] env_free
 	// your code is here, remove the panic and write your code
-	panic("env_free() is not implemented yet...!!");
+	// panic("env_free() is not implemented yet...!!");
 
+
+	if(!e){
+		return;
+	}
+
+	struct WorkingSetElement *working_set_element_iterator = NULL;
+	uint32 *ptr_page_table;
+	uint8 is_empty;
+
+	// All pages in the page working set
+	while (!LIST_EMPTY(&(e->page_WS_list))){
+
+		working_set_element_iterator = LIST_FIRST(&(e->page_WS_list));
+
+		ptr_page_table = NULL;
+		is_empty = 1;
+
+		get_page_table(e->env_page_directory, working_set_element_iterator->virtual_address, &ptr_page_table);
+
+		unmap_frame(e->env_page_directory, working_set_element_iterator->virtual_address);
+		pt_clear_page_table_entry(e->env_page_directory, working_set_element_iterator->virtual_address);
+
+		for (int page_table_index = 0; page_table_index < 1024; page_table_index++) {
+			if (ptr_page_table[page_table_index] != 0) {
+				is_empty = 0;
+				break;
+			}
+		}
+
+		if (is_empty) {
+			pd_clear_page_dir_entry(e->env_page_directory, (uint32)ptr_page_table);
+			kfree((void *)ptr_page_table);
+		}
+
+		LIST_REMOVE(&(e->page_WS_list), working_set_element_iterator);
+		kfree(working_set_element_iterator);
+	}
+
+
+	// free any remaining pages that was not in the working set
+	for (uint32 virtual_address = USER_HEAP_START; virtual_address < USER_HEAP_MAX; virtual_address += PAGE_SIZE){
+		unmap_frame(e->env_page_directory, virtual_address);
+	}
+
+	// check for any remaining page tables
+	ptr_page_table = NULL;
+	for (uint32 page_table_virtual_address = USER_HEAP_START; page_table_virtual_address < USER_HEAP_MAX; page_table_virtual_address += PAGE_SIZE * 1024){
+
+		if(get_page_table(e->env_page_directory, page_table_virtual_address, &ptr_page_table) == TABLE_IN_MEMORY){
+
+			pd_clear_page_dir_entry(e->env_page_directory, (uint32)ptr_page_table);
+			kfree((void*)ptr_page_table);
+		}
+	}
+
+	// remove the User kernel stack
+	delete_user_kern_stack(e);
+
+	// ALL shared objects (if any) & ALL semaphores (if any)
+	acquire_spinlock(&(AllShares.shareslock));
+	struct Share *share_list_iterator = NULL;
+
+	LIST_FOREACH(share_list_iterator, &(AllShares.shares_list)){
+
+		if(share_list_iterator->ownerID == e->env_id){
+
+			LIST_REMOVE(&AllShares.shares_list, share_list_iterator);
+
+			kfree(share_list_iterator->framesStorage);
+			kfree(share_list_iterator);
+		}
+	}
+
+	release_spinlock(&(AllShares.shareslock));
+
+	// free the Directory table
+	kfree(e->env_page_directory);
 
 	// [9] remove this program from the page file
 	/*(ALREADY DONE for you)*/
@@ -900,8 +991,20 @@ void delete_user_kern_stack(struct Env* e)
 #if USE_KHEAP
 	//[PROJECT'24.MS3] BONUS
 	// Write your code here, remove the panic and write your code
-	panic("delete_user_kern_stack() is not implemented yet...!!");
+	// panic("delete_user_kern_stack() is not implemented yet...!!");
+	void *stack_base = e->kstack;
+	if(!stack_base){
+		panic("user_environment.c::delete_user_kern_stack(), Failed to create user kernel stack");
+	}
 
+	uint32 guard_page = (uint32)stack_base;
+	uint32 *page_table = NULL;
+
+	if (get_page_table(e->env_page_directory, guard_page, &page_table) == TABLE_IN_MEMORY) {
+        page_table[PTX(guard_page)] &= ~PERM_PRESENT;
+    }
+
+	kfree(stack_base);
 	//Delete the allocated space for the user kernel stack of this process "e"
 	//remember to delete the bottom GUARD PAGE (i.e. not mapped)
 #else
@@ -1048,6 +1151,9 @@ void initialize_environment(struct Env* e, uint32* ptr_user_page_directory, unsi
 	e->nPageIn = 0;
 	e->nPageOut = 0;
 	e->nNewPageAdded = 0;
+
+	// For priority promotion in priority scheduler MS3
+	e->age = 0;
 
 	//e->shared_free_address = USER_SHARED_MEM_START;
 

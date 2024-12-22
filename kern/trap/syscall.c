@@ -510,6 +510,33 @@ void sys_bypassPageFault(uint8 instrLength)
 	bypassInstrLength = instrLength;
 }
 
+void block_and_schedule_next(struct __semdata *semdata)
+{
+	acquire_spinlock(&ProcessQueues.qlock);
+
+	cur_env->env_status = ENV_BLOCKED;
+	enqueue(&semdata->queue , cur_env);
+
+	// avoid deadlock by releasing the semaphore lock before being blocked
+	semdata->lock = 0;
+	sched();
+
+	release_spinlock(&ProcessQueues.qlock);
+}
+
+void unblock_and_enqueue_ready(struct __semdata *semdata){
+	acquire_spinlock(&ProcessQueues.qlock);
+
+	struct Env *new_ready_proc = dequeue(&semdata->queue);
+	sched_insert_ready(new_ready_proc);
+
+	release_spinlock(&ProcessQueues.qlock);	
+}
+
+void sys_env_set_priority(int32 envID, int priority)
+{
+	env_set_priority(envID, priority);
+}
 
 /**************************************************************************/
 /************************* SYSTEM CALLS HANDLER ***************************/
@@ -701,6 +728,18 @@ uint32 syscall(uint32 syscallno, uint32 a1, uint32 a2, uint32 a3, uint32 a4, uin
 	case SYS_allocate_user_mem:
 		sys_allocate_user_mem(a1, a2);
 		return 0;
+		
+	case SYS_PROCESS_BLOCKED_SCHED:
+		block_and_schedule_next((struct __semdata*)a1);
+		return 0;
+		
+	case SYS_UNBLOCK_AND_ENQUEUE_READY:
+		unblock_and_enqueue_ready((struct __semdata *)a1);
+		return 0;
+
+	case SYS_set_priority:
+		sys_env_set_priority(a1, a2);
+		break;
 
 	case NSYSCALLS:
 		return 	-E_INVAL;

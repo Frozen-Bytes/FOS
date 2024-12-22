@@ -15,6 +15,7 @@
 #define SCH_RR 		0
 #define SCH_MLFQ 	1
 #define SCH_BSD 	2
+#define SCH_PRIRR 	3
 
 //2024 - decide whether to place this as a private member for each CPU or as a global for all CPUs?
 unsigned scheduler_method ;
@@ -41,6 +42,7 @@ struct
 	uint8 quantums[1] ;					// Quantum in ms for RR
 #endif
 	uint8 num_of_ready_queues ;			// Number of ready queue(s)
+	uint32 starvation_threshold;
 
 //===============
 
@@ -65,14 +67,17 @@ int64 timer_ticks() ;
 void sched_init_RR(uint8 quantum);
 void sched_init_MLFQ(uint8 numOfLevels, uint8 *quantumOfEachLevel);
 void sched_init_BSD(uint8 numOfLevels, uint8 quantum);
+void sched_init_PRIRR(uint8 numOfPriorities, uint8 quantum, uint32 starvThresh);
 
 uint32 isSchedMethodRR();
 uint32 isSchedMethodMLFQ();
 uint32 isSchedMethodBSD();
+uint32 isSchedMethodPRIRR();
 
 struct Env* fos_scheduler_RR();
 struct Env* fos_scheduler_MLFQ();
 struct Env* fos_scheduler_BSD();
+struct Env* fos_scheduler_PRIRR();
 
 //2012
 // This function does not return.

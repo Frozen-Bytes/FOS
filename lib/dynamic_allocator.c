@@ -215,6 +215,9 @@ handle_allocation(void *required_blk, uint32 required_size) {
     if (sbrk_result == (void*)-1) {
         return NULL;
     } else {
+		// update the END BLOCK
+	    uint32 *end_block = (uint32*)(sbrk(0) - sizeof(uint32));
+	    *end_block = 1;
 		struct BlockElement *new_free_block = (struct BlockElement*)((uint32*)start_new_allocated_memory + 1);
 		set_block_data(new_free_block, new_allocated_size, 0);
 		// footer of the prev block to check if it's allocated

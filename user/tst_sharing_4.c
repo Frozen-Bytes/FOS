@@ -44,14 +44,18 @@ _main(void)
 		if (x != (uint32*)pagealloc_start)
 		{is_correct = 0; cprintf("Returned address is not correct. check the setting of it and/or the updating of the shared_mem_free_address");}
 		expected = 1+1 ; /*1page +1table*/
+
+		/*extra 1 page & 1 table for kernel sbrk (at max) due to sharedObject & frameStorage*/
+		/*extra 1 page & 1 table for user sbrk (at max) if creating special DS to manage USER PAGE ALLOC */
+		int upperLimit = expected +1+1 +1+1 ;
 		diff = (freeFrames - sys_calculate_free_frames());
-		if (diff < expected || diff > expected +1+1 /*extra 1 page & 1 table for sbrk (at max)*/)
+		if (diff < expected || diff > upperLimit)
 			{is_correct = 0; cprintf("Wrong allocation (current=%d, expected=%d): make sure that you allocate the required space in the user environment and add its frames to frames_storage", freeFrames - sys_calculate_free_frames(), expected);}
 
 		sfree(x);
-		expected = 0 ;
-		int diff = (freeFrames - sys_calculate_free_frames());
-		if (diff !=  expected)
+
+		int diff2 = (freeFrames - sys_calculate_free_frames());
+		if (diff2 !=  (diff - expected))
 		{is_correct = 0; cprintf("Wrong free: revise your freeSharedObject logic. Expected = %d, Actual = %d", expected, (freeFrames - sys_calculate_free_frames()));}
 	}
 	cprintf("Step A completed!!\n\n\n");
@@ -70,22 +74,24 @@ _main(void)
 		{is_correct = 0; cprintf("Wrong free: make sure that you free the shared object by calling free_share_object()");}
 
 		expected = 2+1 ; /*2pages +1table*/
+		/*extra 1 page for kernel sbrk (at max) due to sharedObject & frameStorage of the 2nd object "x"*/
+		/*if creating special DS to manage USER PAGE ALLOC, the prev. created page from STEP A is sufficient */
+		int upperLimit = expected +1 ;
 		diff = (freeFrames - sys_calculate_free_frames());
-		if (diff < expected || diff > expected +1+1 /*extra 1 page & 1 table for sbrk (at max)*/)
+		if (diff < expected || diff > upperLimit)
 			{is_correct = 0; cprintf("Wrong previous free: make sure that you correctly free shared object before (Step A)");}
 
 		sfree(z);
 
-		expected = 1+1 ; /*1page +1table*/
-		diff = (freeFrames - sys_calculate_free_frames());
-		if (diff !=  expected)
+		int diff2 = (freeFrames - sys_calculate_free_frames());
+		if (diff2 != (diff - 1 /*1 page*/))
 		{is_correct = 0; cprintf("Wrong free: revise your freeSharedObject logic. Expected = %d, Actual = %d", expected, (freeFrames - sys_calculate_free_frames()));}
 
 		sfree(x);
 
 		expected = 0;
-		diff = (freeFrames - sys_calculate_free_frames());
-		if (diff !=  expected)
+		int diff3 = (freeFrames - sys_calculate_free_frames());
+		if (diff3 != (diff2 - (1+1) /*1 page + 1 table*/))
 		{is_correct = 0; cprintf("Wrong free: revise your freeSharedObject logic. Expected = %d, Actual = %d", expected, (freeFrames - sys_calculate_free_frames()));}
 
 	}
@@ -102,7 +108,7 @@ _main(void)
 		u = smalloc("u", PAGE_SIZE, 1);
 		expected = 5+1 ; /*5pages +1table*/
 		diff = (freeFrames - sys_calculate_free_frames());
-		if (diff < expected || diff > expected +1+1 /*extra 1 page & 1 table for sbrk (at max)*/)
+		if (diff != expected)
 			{is_correct = 0; cprintf("Wrong allocation (current=%d, expected=%d): make sure that you allocate the required space in the user environment and add its frames to frames_storage", freeFrames - sys_calculate_free_frames(), expected);}
 
 		sfree(w);
@@ -132,6 +138,8 @@ _main(void)
 		diff = (freeFrames - sys_calculate_free_frames());
 		if (diff != expected) {is_correct = 0; cprintf("Wrong free: revise your freeSharedObject logic. Expected = %d, Actual = %d", expected, (freeFrames - sys_calculate_free_frames()));}
 
+		if (is_correct)	eval+=25;
+		is_correct = 1;
 
 		//Checking boundaries of page tables
 		freeFrames = sys_calculate_free_frames() ;
@@ -159,7 +167,7 @@ _main(void)
 		if (diff != expected) {is_correct = 0; cprintf("Wrong free: revise your freeSharedObject logic. Expected = %d, Actual = %d", expected, (freeFrames - sys_calculate_free_frames()));}
 	}
 	cprintf("Step C completed!!\n\n\n");
-	if (is_correct)	eval+=50;
+	if (is_correct)	eval+=25;
 	is_correct = 1;
 
 	cprintf("\n%~Test of freeSharedObjects [4] completed. Eval = %d%%\n\n", eval);

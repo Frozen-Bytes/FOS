@@ -135,7 +135,7 @@ void fault_handler(struct Trapframe *tf)
 	}
 	//check the faulted address, is it a table or not ?
 	//If the directory entry of the faulted address is NOT PRESENT then
-	if ( (faulted_env->env_page_directory[PDX(fault_va)] & PERM_PRESENT) != PERM_PRESENT)
+	if ((faulted_env->env_page_directory[PDX(fault_va)] & PERM_PRESENT) != PERM_PRESENT)
 	{
 		// we have a table fault =============================================================
 		//		cprintf("[%s] user TABLE fault va %08x\n", curenv->prog_name, fault_va);
@@ -235,6 +235,108 @@ void table_fault_handler(struct Env * curenv, uint32 fault_va)
 //=========================
 // [3] PAGE FAULT HANDLER:
 //=========================
+void
+page_ws_list_insert_element(struct Env * faulted_env, uint32 fault_va) {
+	struct FrameInfo *new_frame = NULL;
+	allocate_frame(&new_frame);
+	if (new_frame == NULL) {
+		panic("fault_handler.c::page_ws_list_insert_element(), Failed to allocate frame");
+	}
+	map_frame(faulted_env->env_page_directory, new_frame, fault_va, PERM_USER | PERM_WRITEABLE | PERM_PRESENT);
+	
+	if (pf_read_env_page(faulted_env, (void*)fault_va) == E_PAGE_NOT_EXIST_IN_PF) {
+		if (!((fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX) || (fault_va >= USTACKBOTTOM && fault_va < USTACKTOP))) {
+			unmap_frame(faulted_env->env_page_directory, fault_va);
+			env_exit();
+			return;
+		}
+	}
+
+	struct WorkingSetElement *new_element = env_page_ws_list_create_element(faulted_env, fault_va);
+	if (new_element == NULL) {
+        panic("fault_handler.c::page_ws_list_insert_element: Failed to create WS element!");
+    }
+	// Added to implement O(1) free_user_mem
+	new_frame->wse = new_element;
+
+    if (faulted_env->page_last_WS_element == NULL) {
+	    LIST_INSERT_TAIL(&(faulted_env->page_WS_list), new_element);
+		if(LIST_SIZE(&(faulted_env->page_WS_list)) == faulted_env->page_WS_max_size) {
+			faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_list));
+		}
+	} else {
+		LIST_INSERT_BEFORE(&(faulted_env->page_WS_list), faulted_env->page_last_WS_element, new_element);
+	}
+}
+
+void
+page_ws_list_remove_element(struct Env * faulted_env, struct WorkingSetElement * removed_element) {
+    
+	uint32 va = removed_element->virtual_address;
+	uint32 is_modified = (pt_get_page_permissions(faulted_env->env_page_directory, va)&PERM_MODIFIED);
+
+    if (is_modified) {
+		uint32 *page_table = NULL;
+	    struct FrameInfo *frame_info = get_frame_info(faulted_env->env_page_directory, va, &page_table);
+
+		if (frame_info == NULL) {
+			panic("fault_handler.c::page_ws_list_remove_element: Unmaped page!");
+		}
+
+        if (pf_update_env_page(faulted_env, va, frame_info) == E_NO_PAGE_FILE_SPACE) {
+           panic("fault_handler.c::page_ws_list_remove_element: Failed to creat new environment page (No space)!");
+		}
+	}
+
+	faulted_env->page_last_WS_element = removed_element;
+	env_page_ws_invalidate(faulted_env, va);
+}
+
+void
+update_WS(struct Env * faulted_env , int max_N) {
+    int N = page_WS_max_sweeps;
+	int is_MODIFIED_version = 0;
+	if (N < 0) {
+		N *= -1;
+		is_MODIFIED_version = 1;
+	}
+    
+	struct WorkingSetElement *element = faulted_env->page_last_WS_element;
+	int Number_of_iterations = N - max_N;
+
+	do {
+		uint32 perm = pt_get_page_permissions(faulted_env->env_page_directory, element->virtual_address);
+		uint32 is_used = (perm&PERM_USED), is_modified = (perm&PERM_MODIFIED);
+
+        element->sweeps_counter += Number_of_iterations;   
+
+		if (is_used) {
+			pt_set_page_permissions(faulted_env->env_page_directory, element->virtual_address, 0, PERM_USED);
+			element->sweeps_counter = Number_of_iterations;
+		}
+
+        int curN = element->sweeps_counter;
+		if (is_MODIFIED_version && is_modified) {
+            curN -= 1;
+		}
+        
+		// the end of last iteration (removed element) 
+		if (curN == N) {
+			Number_of_iterations--;
+			if(Number_of_iterations <= 0) {
+				break;
+			}
+		}
+
+		element = element->prev_next_info.le_next;
+		if (element == NULL) {
+			element = LIST_FIRST(&(faulted_env->page_WS_list));
+		}
+
+	} while (element != faulted_env->page_last_WS_element);
+	
+}
+
 void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 {
 #if USE_KHEAP
@@ -244,39 +346,12 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 		int iWS =faulted_env->page_last_WS_index;
 		uint32 wsSize = env_page_ws_get_size(faulted_env);
 #endif
-
+    fault_va = ROUNDDOWN(fault_va, PAGE_SIZE);
 	if(wsSize < (faulted_env->page_WS_max_size))
 	{
 		//cprintf("PLACEMENT=========================WS Size = %d\n", wsSize );
 		//TODO: [PROJECT'24.MS2 - #09] [2] FAULT HANDLER I - Placement
-		struct FrameInfo *new_frame = NULL;
-		allocate_frame(&new_frame);
-		if (new_frame == NULL){
-			panic("fault_handler.c::page_fault_handler(), Failed to allocate frame");
-		}
-		map_frame(faulted_env->env_page_directory, new_frame, fault_va, PERM_USER | PERM_WRITEABLE | PERM_PRESENT);
-		
-		if(pf_read_env_page(faulted_env, (void*)fault_va) == E_PAGE_NOT_EXIST_IN_PF){
-			if(!((fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX) || (fault_va >= USTACKBOTTOM && fault_va < USTACKTOP))){
-				unmap_frame(faulted_env->env_page_directory, fault_va);
-				env_exit();
-				return;
-			}
-		}
-
-		struct WorkingSetElement *new_element = env_page_ws_list_create_element(faulted_env, fault_va);
-		if (new_element == NULL){
-            panic("fault_handler.c::page_fault_handler(): Failed to create WS element!");
-        }
-		// Added to implement O(1) free_user_mem
-		new_frame->wse = new_element;
-
-		LIST_INSERT_TAIL(&(faulted_env->page_WS_list), new_element);
-		if(LIST_SIZE(&(faulted_env->page_WS_list)) == faulted_env->page_WS_max_size) {
-			faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_list));
-		} else {
-			faulted_env->page_last_WS_element = NULL;
-		}
+		page_ws_list_insert_element(faulted_env, fault_va);
 	}
 	else
 	{
@@ -284,8 +359,45 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 		//refer to the project presentation and documentation for details
 		//TODO: [PROJECT'24.MS3] [2] FAULT HANDLER II - Replacement
 		// Write your code here, remove the panic and write your code
-		panic("page_fault_handler() Replacement is not implemented yet...!!");
+
+		int is_MODIFIED_version = (page_WS_max_sweeps < 0);
+		// the min value is -1 for modefied and 0 for not modefied
+		int max_sweeps_counter = -2;
+		struct WorkingSetElement *removed_element = NULL , *element = faulted_env->page_last_WS_element;
+
+		// loop to calculate the number of iterations
+        do {
+			uint32 perm = pt_get_page_permissions(faulted_env->env_page_directory, element->virtual_address);
+			uint32 is_used = (perm&PERM_USED), is_modified = (perm&PERM_MODIFIED);
+            int curN = element->sweeps_counter;
+			
+			if (is_used) {
+				curN = 0;
+			}
+            // give the modified elements extra chance
+			if (is_MODIFIED_version && is_modified) {
+              curN -= 1;
+			}
+
+			if (curN > max_sweeps_counter) {
+				max_sweeps_counter = curN;
+				removed_element = element;
+			}
+			
+			element = element->prev_next_info.le_next;
+			if (element == NULL) {
+				element = LIST_FIRST(&(faulted_env->page_WS_list));
+			}
+
+		} while (element != faulted_env->page_last_WS_element);
+
+        // ubdate sweeps_counter for each elsement in the working set
+        update_WS(faulted_env, max_sweeps_counter);
+		page_ws_list_remove_element(faulted_env, removed_element);
+		page_ws_list_insert_element(faulted_env, fault_va);
+
 	}
+	
 }
 
 void __page_fault_handler_with_buffering(struct Env * curenv, uint32 fault_va)
@@ -294,4 +406,3 @@ void __page_fault_handler_with_buffering(struct Env * curenv, uint32 fault_va)
 	// your code is here, remove the panic and write your code
 	panic("__page_fault_handler_with_buffering() is not implemented yet...!!");
 }
-

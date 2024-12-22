@@ -4,7 +4,7 @@
 void Swap(int *Elements, int First, int Second);
 void PrintElements(int *Elements, int NumOfElements);
 
-void MatrixMultiply(int *Elements, int NumOfElements);
+void QuickSort(int *Elements, int NumOfElements);
 void QSort(int *Elements,int NumOfElements, int startIndex, int finalIndex);
 
 void _main(void)
@@ -13,18 +13,25 @@ void _main(void)
 	int32 parentenvID = sys_getparentenvid();
 
 	int ret;
-	/*[1] GET SHARED VARs*/
+	/*[1] GET SEMAPHORES*/
+	struct semaphore ready = get_semaphore(parentenvID, "Ready");
+	struct semaphore finished = get_semaphore(parentenvID, "Finished");
+
+	/*[2] WAIT A READY SIGNAL FROM THE MASTER*/
+	wait_semaphore(ready);
+
+	/*[3] GET SHARED VARs*/
+	//Get the cons_mutex ownerID
+	int* consMutexOwnerID = sget(parentenvID, "cons_mutex ownerID") ;
+	struct semaphore cons_mutex = get_semaphore(*consMutexOwnerID, "Console Mutex");
+
 	//Get the shared array & its size
 	int *numOfElements = NULL;
 	int *sharedArray = NULL;
 	sharedArray = sget(parentenvID,"arr") ;
 	numOfElements = sget(parentenvID,"arrSize") ;
 
-	//Get the check-finishing counter
-	int *finishedCount = NULL;
-	finishedCount = sget(parentenvID,"finishedCount") ;
-
-	/*[2] DO THE JOB*/
+	/*[4] DO THE JOB*/
 	//take a copy from the original array
 	int *sortedArray;
 	sortedArray = smalloc("quicksortedArr", sizeof(int) * *numOfElements, 0) ;
@@ -33,16 +40,22 @@ void _main(void)
 	{
 		sortedArray[i] = sharedArray[i];
 	}
-	MatrixMultiply(sortedArray, *numOfElements);
-	cprintf("Quick sort is Finished!!!!\n") ;
+	QuickSort(sortedArray, *numOfElements);
 
-	/*[3] SHARE THE RESULTS & DECLARE FINISHING*/
-	(*finishedCount)++ ;
+	wait_semaphore(cons_mutex);
+	{
+		cprintf("Quick sort is Finished!!!!\n") ;
+		cprintf("will notify the master now...\n");
+		cprintf("Quick sort says GOOD BYE :)\n") ;
+	}
+	signal_semaphore(cons_mutex);
 
+	/*[5] DECLARE FINISHING*/
+	signal_semaphore(finished);
 }
 
 ///Quick sort
-void MatrixMultiply(int *Elements, int NumOfElements)
+void QuickSort(int *Elements, int NumOfElements)
 {
 	QSort(Elements, NumOfElements, 0, NumOfElements-1) ;
 }

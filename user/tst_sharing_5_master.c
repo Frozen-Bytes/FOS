@@ -1,9 +1,11 @@
 // Test the free of shared variables
 #include <inc/lib.h>
 
+extern volatile bool printStats;
 void
 _main(void)
 {
+	printStats = 0;
 	/*********************** NOTE ****************************
 	 * WE COMPARE THE DIFF IN FREE FRAMES BY "AT LEAST" RULE
 	 * INSTEAD OF "EQUAL" RULE SINCE IT'S POSSIBLE THAT SOME
@@ -67,9 +69,9 @@ _main(void)
 		sfree(x);
 
 		cprintf("Master env removed x (1 page) \n");
-		diff = (sys_calculate_free_frames() - freeFrames);
+		int diff2 = (sys_calculate_free_frames() - freeFrames);
 		expected = 1+1; /*1page+1table*/
-		if (diff !=  expected) panic("Wrong free (diff=%d, expected=%d): revise your freeSharedObject logic\n", diff, expected);
+		if (diff != expected) panic("Wrong free (diff=%d, expected=%d): revise your freeSharedObject logic\n", diff, expected);
 	}
 	cprintf("Step A completed successfully!!\n\n\n");
 
@@ -79,11 +81,11 @@ _main(void)
 		int32 envIdSlaveB1 = sys_create_env("tshr5slaveB1", (myEnv->page_WS_max_size),(myEnv->SecondListSize), (myEnv->percentage_of_WS_pages_to_be_removed));
 		int32 envIdSlaveB2 = sys_create_env("tshr5slaveB2", (myEnv->page_WS_max_size),(myEnv->SecondListSize), (myEnv->percentage_of_WS_pages_to_be_removed));
 
-		z = smalloc("z", PAGE_SIZE, 1);
-		cprintf("Master env created z (1 page) \n");
+		z = smalloc("z", PAGE_SIZE+1, 1);
+		cprintf("Master env created z (2 pages) \n");
 
-		x = smalloc("x", PAGE_SIZE, 1);
-		cprintf("Master env created x (1 page) \n");
+		x = smalloc("x", PAGE_SIZE+1024, 1);
+		cprintf("Master env created x (2 pages) \n");
 
 		rsttst();
 
@@ -96,7 +98,7 @@ _main(void)
 			while (gettst()!=2) ;
 		}
 
-		rsttst();
+//		rsttst();
 
 		int freeFrames = sys_calculate_free_frames() ;
 
@@ -106,17 +108,13 @@ _main(void)
 		sfree(x);
 		cprintf("Master env removed x\n");
 
-		//Signal slave programs to indicate that x& z are removed from master
-		inctst();
-
 		int diff = (sys_calculate_free_frames() - freeFrames);
-		expected = 1;
+		expected = 1 /*table*/;
 		if (diff !=  expected) panic("Wrong free: frames removed not equal 1 !, correct frames to be removed are 1:\nfrom the env: 1 table\nframes_storage of z & x: should NOT cleared yet (still in use!)\n");
 
 		//To indicate that it's completed successfully
+		cprintf("Master is completed.\n");
 		inctst();
-
-
 	}
 
 
