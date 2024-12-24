@@ -469,7 +469,7 @@ ALL semaphores (if any)
 All page tables in the entire user virtual memory
 Directory table
 User kernel stack
-All pages from page file, this code is already written for you 
+All pages from page file, this code is already written for you Ã¯ï¿½Å 
 
 
 */
@@ -483,57 +483,63 @@ void env_free(struct Env *e)
 	//[PROJECT'24.MS3] BONUS [EXIT ENV] env_free
 	// your code is here, remove the panic and write your code
 	// panic("env_free() is not implemented yet...!!");
-	
-	
+
+
 	if(!e){
 		return;
 	}
 
-	struct WorkingSetElement *working_set_element_iterator = NULL; 
+	struct WorkingSetElement *working_set_element_iterator = NULL;
 	uint32 *ptr_page_table;
 	uint8 is_empty;
 
 	// All pages in the page working set
-	LIST_FOREACH(working_set_element_iterator, &(e->page_WS_list)){
+	while (!LIST_EMPTY(&(e->page_WS_list))){
+
+		working_set_element_iterator = LIST_FIRST(&(e->page_WS_list));
+
 		ptr_page_table = NULL;
 		is_empty = 1;
 
 		get_page_table(e->env_page_directory, working_set_element_iterator->virtual_address, &ptr_page_table);
-		LIST_REMOVE(&(e->page_WS_list), working_set_element_iterator);
+
 		unmap_frame(e->env_page_directory, working_set_element_iterator->virtual_address);
-		
-		// check the page table
-		for (int page_table_index = 0; page_table_index < 1024; page_table_index++){
-			if(ptr_page_table[page_table_index] != 0){
+		pt_clear_page_table_entry(e->env_page_directory, working_set_element_iterator->virtual_address);
+
+		for (int page_table_index = 0; page_table_index < 1024; page_table_index++) {
+			if (ptr_page_table[page_table_index] != 0) {
 				is_empty = 0;
 				break;
 			}
 		}
 
-		if(is_empty){
-
+		if (is_empty) {
 			pd_clear_page_dir_entry(e->env_page_directory, (uint32)ptr_page_table);
-			kfree((void*)ptr_page_table);
-			pd_set_table_unused(e->env_page_directory, (uint32)ptr_page_table);
+			kfree((void *)ptr_page_table);
 		}
-		
+
+		LIST_REMOVE(&(e->page_WS_list), working_set_element_iterator);
 		kfree(working_set_element_iterator);
 	}
 
+
 	// free any remaining pages that was not in the working set
+	ptr_page_table = NULL;
 	for (uint32 virtual_address = USER_HEAP_START; virtual_address < USER_HEAP_MAX; virtual_address += PAGE_SIZE){
-		unmap_frame(e->env_page_directory, virtual_address);
+		if(get_page_table(e->env_page_directory, virtual_address, &ptr_page_table) == TABLE_IN_MEMORY){
+			unmap_frame(e->env_page_directory, virtual_address);
+			// pt_clear_page_table_entry(e->env_page_directory, virtual_address);
+		}
 	}
 
 	// check for any remaining page tables
 	ptr_page_table = NULL;
 	for (uint32 page_table_virtual_address = USER_HEAP_START; page_table_virtual_address < USER_HEAP_MAX; page_table_virtual_address += PAGE_SIZE * 1024){
-		
+
 		if(get_page_table(e->env_page_directory, page_table_virtual_address, &ptr_page_table) == TABLE_IN_MEMORY){
 
 			pd_clear_page_dir_entry(e->env_page_directory, (uint32)ptr_page_table);
 			kfree((void*)ptr_page_table);
-			pd_set_table_unused(e->env_page_directory, (uint32)ptr_page_table);
 		}
 	}
 
@@ -554,7 +560,7 @@ void env_free(struct Env *e)
 			kfree(share_list_iterator);
 		}
 	}
-	
+
 	release_spinlock(&(AllShares.shareslock));
 
 	// free the Directory table
@@ -569,6 +575,7 @@ void env_free(struct Env *e)
 	/*(ALREADY DONE for you)*/
 	free_environment(e); /*(ALREADY DONE for you)*/ // (frees the environment (returns it back to the free environment list))
 	/*========================*/
+	cprintf("\n old_brk: %x, new_brk: %x\n", old_brk, kheap_break);
 }
 
 //============================
@@ -998,7 +1005,7 @@ void delete_user_kern_stack(struct Env* e)
 	uint32 guard_page = (uint32)stack_base;
 	uint32 *page_table = NULL;
 
-	if (get_page_table(e->env_page_directory, guard_page, &page_table) == TABLE_IN_MEMORY) {    
+	if (get_page_table(e->env_page_directory, guard_page, &page_table) == TABLE_IN_MEMORY) {
         page_table[PTX(guard_page)] &= ~PERM_PRESENT;
     }
 
