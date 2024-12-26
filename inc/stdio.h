@@ -30,6 +30,16 @@ int	vcprintf(const char *fmt, va_list);
 int	vcprintf_colored(const char *fmt, va_list);
 
 // defines for cprintf_colored
+/**
+ * Attribute Byte Format (Character Attributes):
+ * ref: https://en.wikipedia.org/wiki/VGA_text_mode
+ * 
+ * 
+ * +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+ * |  7     |    6 |  5 |  4    |  3 |  2 |  1 |  0  |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+ * | Blink  | Background Color  |  Foreground Color  |              Code Point               |
+ * +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+ */
 
 // forground colors (text colors)
 enum
@@ -51,6 +61,22 @@ enum
     TEXT_yellow,
     TEXT_white
 };
+
+// background colors
+enum
+{
+    TEXTBG_black      = 0x00,
+    TEXTBG_blue       = 0x10,
+    TEXTBG_green      = 0x20,
+    TEXTBG_cyan       = 0x30,
+    TEXTBG_red        = 0x40,
+    TEXTBG_magenta    = 0x50,
+    TEXTBG_brown      = 0x60,
+    TEXTBG_light_grey = 0x70,
+};
+
+// special attributes 
+#define TEXT_blink 0x80
 
 // lib/sprintf.c
 int	snprintf(char *str, int size, const char *fmt, ...);
