@@ -66,14 +66,14 @@ static void putch_colored(int ch, struct printbuf *b) {
 	b->cnt++;
 }
 
-int	vcprintf_colored(const char *fmt, va_list ap)
+int	vcprintf_colored(int color, const char *fmt, va_list ap)
 {
 	struct printbuf b;
 
 	b.idx = 0;
 	b.cnt = 0;
 	vprintfmt((void*) putch_colored, &b, fmt, ap);
-	sys_cputs_colored(b.buf, b.idx, printProgName, current_text_color);
+	sys_cputs_colored(b.buf, b.idx, printProgName, color);
 
 	printProgName = 0;
 	return b.cnt;
@@ -85,8 +85,9 @@ int cprintf_colored(int color, const char *fmt, ...)
 	int cnt;
 	printProgName = 1 ;
 	va_start(ap, fmt);
-	current_text_color = color << 8;
-	cnt = vcprintf_colored(fmt, ap);
+	color <<= 8;
+	current_text_color = color;
+	cnt = vcprintf_colored(color, fmt, ap);
 	va_end(ap);
 
 	return cnt;

@@ -27,7 +27,7 @@ int	cprintf(const char *fmt, ...);
 int cprintf_colored(int color, const char *fmt, ...);
 int	atomic_cprintf(const char *fmt, ...);
 int	vcprintf(const char *fmt, va_list);
-int	vcprintf_colored(const char *fmt, va_list);
+int	vcprintf_colored(int color, const char *fmt, va_list);
 
 // defines for cprintf_colored
 /**
