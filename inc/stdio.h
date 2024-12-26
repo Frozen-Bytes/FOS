@@ -72,7 +72,7 @@ enum
     TEXTBG_red        = 0x40,
     TEXTBG_magenta    = 0x50,
     TEXTBG_brown      = 0x60,
-    TEXTBG_light_grey = 0x70,
+    TEXTBG_light_grey = 0x70
 };
 
 // special attributes 
