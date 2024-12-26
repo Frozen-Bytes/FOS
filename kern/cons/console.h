@@ -19,7 +19,7 @@
 #define CRT_COLS	80
 #define CRT_SIZE	(CRT_ROWS * CRT_COLS)
 
-static int current_text_color = 0x0700; // default attribute: white text on black bacground 
+extern int current_text_color;
 
 void cons_init(void);
 void cons_putc(int c);

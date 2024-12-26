@@ -13,6 +13,7 @@
 
 #include "console.h"
 
+int current_text_color = 0x0700; // default attribute: white text on black bacground 
 
 void cons_intr(int (*proc)(void));
 int text_length = 0;
