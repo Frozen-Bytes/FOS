@@ -763,7 +763,9 @@ uint32 syscall(uint32 syscallno, uint32 a1, uint32 a2, uint32 a3, uint32 a4, uin
 	case SYS_set_priority:
 		sys_env_set_priority(a1, a2);
 		break;
-
+	case SYS_cputs_colored:
+		sys_cputs_colored((const char*)a1, a2, (uint8)a3, a4);
+		break;
 	case NSYSCALLS:
 		return 	-E_INVAL;
 		break;
