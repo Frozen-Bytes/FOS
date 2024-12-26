@@ -38,6 +38,9 @@ static void sys_cputs(const char *s, uint32 len, uint8 printProgName)
 
 		// LAB 3: Your code here.
 
+		// setting default text color
+		current_text_color = 0x0700;
+
 		// Print the string supplied by the user.
 		if (printProgName)
 			cprintf("[%s %d] ",cur_env->prog_name, cur_env->env_id);
@@ -46,6 +49,26 @@ static void sys_cputs(const char *s, uint32 len, uint8 printProgName)
 	popcli();	//enable interrupts
 }
 
+static void sys_cputs_colored(const char *s, uint32 len, uint8 printProgName, int color)
+{
+	//2024 - better to use locks instead (to support multiprocessors)
+	pushcli();	//disable interrupts
+	{
+		// Check that the user has permission to read memory [s, s+len).
+		// Destroy the environment if not.
+
+		// LAB 3: Your code here.
+
+		// setting text color
+		current_text_color = color;
+
+		// Print the string supplied by the user.
+		if (printProgName)
+			cprintf("[%s %d] ",cur_env->prog_name, cur_env->env_id);
+		cprintf("%.*s",len, s);
+	}
+	popcli();	//enable interrupts
+}
 
 // Print a char to the system console.
 static void sys_cputc(const char c)
