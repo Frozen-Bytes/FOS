@@ -57,6 +57,8 @@ enum
 	//=====================================================================
 	SYS_PROCESS_BLOCKED_SCHED,
 	SYS_UNBLOCK_AND_ENQUEUE_READY,
+	//=====================================================================
+	SYS_cputs_colored,
 	NSYSCALLS
 };
 

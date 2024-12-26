@@ -40,6 +40,12 @@ sys_cputs(const char *s, uint32 len, uint8 printProgName)
 	syscall(SYS_cputs, (uint32) s, len, (uint32)printProgName, 0, 0);
 }
 
+void
+sys_cputs_colored(const char *s, uint32 len, uint8 printProgName, int color)
+{
+	syscall(SYS_cputs_colored, (uint32)s, len, (uint32)printProgName, color, 0);
+}
+
 int
 sys_cgetc(void)
 {

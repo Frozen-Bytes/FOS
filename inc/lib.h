@@ -39,6 +39,7 @@ void atomic_readline(const char *buf, char*);
 /*syscall.c*/
 //Cons
 void	sys_cputs(const char *string, uint32 len, uint8 printProgName);
+void	sys_cputs_colored(const char *string, uint32 len, uint8 printProgName, int color);
 int		sys_cgetc(void);
 void 	sys_cputc(const char c);
 void 	sys_lock_cons(void);
