@@ -15,14 +15,14 @@ _panic(const char *file, int line, const char *fmt,...)
 	va_start(ap, fmt);
 	// Print the panic message
 	if (argv0)
-		cprintf("%s: ", argv0);
-	cprintf("user panic in %s at %s:%d: ", binaryname, file, line);
-	vcprintf(fmt, ap);
+		cprintf_colored(TEXT_light_red, "%s: ", argv0);
+	cprintf_colored(TEXT_light_red, "user panic in %s at %s:%d: ", binaryname, file, line);
+	vcprintf_colored(TEXT_light_red, fmt, ap);
 	vcprintf("\n", NULL);
 
 	// Cause a breakpoint exception
-//	while (1);
-//		asm volatile("int3");
+	//	while (1);
+	//		asm volatile("int3");
 
 	//2013: exit the panic env only
 	exit() ;
