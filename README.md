@@ -5,7 +5,7 @@
 </h1>
 
 # What is FOS?
-[FOS](https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/) is an educational OS for Ain Shams University Operating Systems Course, forked and refactored from [MIT Operating Systems Lab 6.828.](https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/) It was created by [Dr. Mahmoud Hossam](https://github.com/mahossam/) and currently maintained and lectured by [Dr. Ahmed Salah](mailto:ahmed_salah@cis.asu.edu.eg).
+FOS is an educational OS for Ain Shams University Operating Systems Course, forked and refactored from [MIT Operating Systems Lab 6.828.](https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/) It was created by [Dr. Mahmoud Hossam](https://github.com/mahossam/) and currently maintained and lectured by [Dr. Ahmed Salah](mailto:ahmed_salah@cis.asu.edu.eg).
 
 # Top Team
 This is the FOS code for the team that ranked first in the OS project during the 2024-2025 year.
